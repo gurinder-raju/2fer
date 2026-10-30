@@ -1,0 +1,6 @@
+{
+  "name": "2fer",
+  "description": "2fer: speaking practice while you work. It scores how you said each message you dictate to Claude.",
+  "owner": { "name": "Gurinder Raju" },
+  "plugins": [{ "name": "2fer", "source": "./" }]
+}

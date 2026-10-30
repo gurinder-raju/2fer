@@ -1,0 +1,16 @@
+{
+  "name": "2fer",
+  "version": "0.1.0",
+  "description": "Speaking practice while you work: a mark under each message you dictate to Claude opens a card scoring six speaking habits, with a session view and a weekly trend.",
+  "author": { "name": "Gurinder Raju" },
+  "repository": "https://github.com/gurinder-raju/2fer",
+  "homepage": "https://github.com/gurinder-raju/2fer#what-it-looks-like",
+  "screenshots": [
+    "https://raw.githubusercontent.com/gurinder-raju/2fer/main/images/inline-card.png",
+    "https://raw.githubusercontent.com/gurinder-raju/2fer/main/images/session-pane.png",
+    "https://raw.githubusercontent.com/gurinder-raju/2fer/main/images/weekly-view.png"
+  ],
+  "license": "MIT",
+  "keywords": ["speaking", "dictation", "voice", "coaching"],
+  "types": "./types/index.d.ts"
+}
