@@ -117,6 +117,8 @@ test('the counts and the marks come from code, and only dictated prose is review
   expect(isSpeech(`Weekly Notes. ${post}`)).toBe(true)
   expect(isSpeech(`𝗪𝗲𝗲𝗸𝗹𝘆 𝗡𝗼𝘁𝗲𝘀. ${post}`)).toBe(false)
   expect(isSpeech('one thing that i have been pondering is how i can get better at public speaking this year')).toBe(false)
+  // "i.e." is no sign of typing, though a lone lowercase "i" is.
+  expect(isSpeech('Keep the cache small, i.e. one copy on each server, and add a test for the case that broke.')).toBe(true)
 })
 
 test('a dictated message gets the 2fer mark: the pointer shows its pills, and a press opens its card under the message', async ($, on) => {
@@ -297,6 +299,9 @@ test('a note shows about how much of the 5-hour limit it used, once the window h
   // A new window starts its reading over, and keeps what a point was worth.
   window = { percent: 1, usd: 3 }
   expect(await footOf(`${SAID} Okay so that is the plan we want.`)).toBe('Opus 5.5 · 1,630 tokens · about 0.02% of your 5-hour limit')
+  // Other sessions filling the window make a point look cheap, so a lower reading changes nothing.
+  window = { percent: 5, usd: 3.2 }
+  expect(await footOf(`${SAID} Okay so that is the plan we like.`)).toBe('Opus 5.5 · 1,630 tokens · about 0.02% of your 5-hour limit')
   // An API key has no such window, whatever was worked out before.
   window = null
   expect(await footOf(`${SAID} Okay so that is the plan for now.`)).toBe('Opus 5.5 · 1,630 tokens')
@@ -389,7 +394,7 @@ test('short, typed and plugin-sent messages get no note', async ($, on) => {
   expect(calls).toBe(0)
 })
 
-test('a reply that is not JSON leaves nothing under the row', async ($, on) => {
+test('when the model gives no usable answer, the note keeps the counts and says so', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   mock.store(on)
   on('model.complete', () => ({ value: { isAnswered: true, text: 'I cannot help with that.', usage: USAGE } }))
@@ -403,9 +408,60 @@ test('a reply that is not JSON leaves nothing under the row', async ($, on) => {
   await clock.settle()
 
   const ui = await $.ui.mount({ ...ROW, surface: 'desktop' })
-  expect(await ui.find({ key: `2fer-${keyOf(SAID)}` })).toBeUndefined()
-  expect(await ui.find({ type: 'Text', text: /^2fer/ })).toBeUndefined()
+  await ui.press({ key: `2fer-${keyOf(SAID)}` })
+  const text = async (rx: RegExp) => (await ui.find({ type: 'Text', text: rx }))?.text
+  expect(await text(/^Fillers$/)).toBe('Fillers')
+  expect(await text(/^Hedging$/)).toBe('Hedging')
+  expect(await text(/^Incomplete$/)).toBeUndefined()
+  expect(await text(/^Word counts only/)).toBe('Word counts only: Opus 5.5 didn’t answer')
   await ui.unmount()
+})
+
+test('/2fer pause stops notes until /2fer resume, and /2fer help lists the commands', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  mock.store(on)
+  let calls = 0
+  on('model.complete', () => {
+    calls += 1
+    return { value: { isAnswered: true, text: JSON.stringify(REVIEW), usage: USAGE } }
+  })
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('command.register', () => ({ value: { command: '2fer' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>the row</Text>
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+  expect((await $.command.run({ command: '2fer', args: 'pause' })).text).toBe('2fer is paused: no notes in any session, until /2fer resume.')
+  await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
+  await clock.settle()
+  expect(calls).toBe(0)
+  const paused = await $.ui.mount({ ...ROW, surface: 'desktop' })
+  expect(await paused.find({ key: `2fer-${keyOf(SAID)}` })).toBeUndefined()
+  await paused.unmount()
+
+  // The settings pane says so, and its button resumes.
+  const pane = await $.ui.mount({ ...SETTINGS_PANE, surface: 'desktop' })
+  expect((await pane.find({ type: 'Text', text: /^Paused/ }))?.text).toBe('Paused in every session.')
+  await pane.press({ key: 'pause' })
+  expect((await pane.find({ key: 'pause' }))?.text).toBe('Pause')
+  await pane.unmount()
+  await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
+  await clock.settle()
+  expect(calls).toBe(1)
+
+  expect((await $.command.run({ command: '2fer', args: 'pause' })).text).toContain('paused')
+  expect((await $.command.run({ command: '2fer', args: 'resume' })).text).toBe('2fer is back on.')
+
+  // Help, or a word it doesn't know, lists the commands instead of opening the week.
+  for (const args of ['help', 'nonsense']) {
+    const { text } = await $.command.run({ command: '2fer', args })
+    expect(text).toContain('/2fer session')
+    expect(text).toContain('/2fer pause')
+  }
 })
 
 test('this session lists your messages in order, marked where the habits showed, under a top that stays put', async ($, on) => {

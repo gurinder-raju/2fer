@@ -55,6 +55,8 @@ claude plugin install 2fer --marketplace gurinder-raju/2fer
 - `/2fer session`, or **This session ›** on any card, opens this session's messages beside the chat.
 - `/2fer` opens your week beside the chat.
 - `/2fer settings` opens the settings, where you choose the model. `/2fer model haiku` does the same from the prompt.
+- `/2fer pause` stops notes in every session, until `/2fer resume`.
+- `/2fer help` lists the commands.
 
 ## The six habits
 
@@ -71,6 +73,8 @@ claude plugin install 2fer --marketplace gurinder-raju/2fer
 
 People think as they talk, and the model is told so. It counts a late point, an abrupt turn or a repeat only when it's a fault in how you said something you already had in mind. A point you reached by reasoning aloud, a turn to an idea that just came to you, and a summary at the end aren't slips.
 
+Code can't read every "like" for meaning. It skips ones such as "I like" and "looks like", but a phrase such as "apps like Slack" counts as a filler.
+
 To change what a habit looks for, edit `hooks/catalog.ts`.
 
 ## Models and your limit
@@ -86,16 +90,18 @@ Each note is one request to the model you choose. Claude Code makes it with the 
 
 Each request asks the model to think at medium effort before it scores, and that thinking is part of those tokens. To change the effort, edit `EFFORT` in `hooks/register.tsx`.
 
+If the model doesn't give a usable answer, the note keeps the fillers and hedging that code counted, and says the model didn't answer.
+
 Each opened note shows the tokens it used and about how much of your 5-hour limit that was, and the weekly view adds them up for the week.
 
-The share is an estimate. A plan reports only how full the whole window is, in whole points, not what each request took. So each note reads the window, 2fer works out what a point is worth from what your session spends while the window moves, and it weighs the note the same way, at API list prices. Your plan may weigh tokens differently. Other sessions and claude.ai fill the same window, which can make the share read high. It appears once the window has moved two points between notes in a session, and never with an API key, which has no such window.
+The share is an estimate. A plan reports only how full the whole window is, in whole points, not what each request took. So each note reads the window, 2fer works out what a point is worth from what your session spends while the window moves, and it weighs the note the same way, at API list prices. Your plan may weigh tokens differently. Other sessions and claude.ai fill the same window, which makes a point look cheaper than it is, so 2fer keeps the highest figure it has seen. The share can still read high until it sees a truer one. It appears once the window has moved two points between notes in a session, and never with an API key, which has no such window.
 
 The weekly view sums up habits judged by the model, such as Buried point, with one more model request when you pick that habit, about the size of a note. The answer is kept, so the request runs again only when that week's notes change.
 
 ## What it reviews, and what it keeps
 
 - **Which messages:** ones you send yourself that read as dictated prose. They can come from a terminal, the desktop app, or a phone over Remote Control. "Dictated prose" means 15 words or more, capitalized the way dictation writes, and not code or a paste. Slash commands and messages from other plugins are skipped.
-- **Typing:** 2fer can't tell dictation from careful typing, so a typed message that reads like dictated prose gets a note too.
+- **Typing:** 2fer can't tell dictation from careful typing, so a typed message that reads like dictated prose gets a note too. Use `/2fer pause` when you'd rather it didn't.
 - **What the model sees:** only that one message.
 - **What's stored:**
   - **Within a session:** notes and the session pane's copy of your messages are kept in the session's own state.
@@ -106,7 +112,7 @@ The weekly view sums up habits judged by the model, such as Buried point, with o
     - The model's notes, which can quote you.
 
     After 14 days these records are deleted.
-  - **For the share of your limit:** one number, what a point of your 5-hour limit is worth. It's kept across sessions and replaced as 2fer learns more.
+  - **For the share of your limit:** one number, what a point of your 5-hour limit is worth. It's kept across sessions and raised when 2fer sees a higher figure.
   - **Where it all lives:** the records and your settings are in a JSON file under your Claude Code configuration folder.
 
 ## Development

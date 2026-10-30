@@ -1,6 +1,6 @@
 // What 2fer works out in code, so the counts, and the scores of the counted
 // categories, come out the same every time. The model judges only what code
-// can't, and only the categories a person has on.
+// can't.
 
 import type { Grade, Note, Place, Quotes, Reading, Snippet, Usage } from '../types'
 import { CATEGORIES, MODELS, countOf } from './catalog'
@@ -96,8 +96,8 @@ export function isSpeech(text: string): boolean {
   const t = normalize(text)
   const words = wordsOf(t)
   if (words.length < MIN_WORDS) return false
-  // Dictation capitalises the first word and every "I"; typing often doesn't.
-  if (/^[a-z]/.test(t) || /(?<![A-Za-z'])i(?![A-Za-z'])/.test(t)) return false
+  // Dictation capitalises the first word and every "I"; typing often doesn't. "i.e." is no sign either way.
+  if (/^[a-z]/.test(t) || /(?<![A-Za-z'])i(?![A-Za-z']|\.e\b)/.test(t)) return false
   if (/```|<\/?[a-z_-]+>/i.test(t)) return false
   // Pastes read as prose too: styled letters, a transcript's timestamps, or a length nobody dictates.
   if (/[\u{1D400}-\u{1D7FF}]/u.test(t) || (t.match(/\b\d{1,2}:\d{2}\b/g)?.length ?? 0) >= 3 || words.length > 900) return false
@@ -238,6 +238,7 @@ export function clockOf(ms: number): string {
 function usedOf(n: Note): string {
   if (n.model === 'none') return 'Word counts only, no model'
   const name = MODELS.find(m => m.id === n.model)?.name ?? n.model
+  if (n.unanswered) return `Word counts only: ${name} didn’t answer`
   if (!n.usage) return `Scored by ${name}`
   const used = `${name} · ${thousands(tokensOf(n.usage))} tokens`
   return n.share === undefined ? used : `${used} · ${percentOf(n.share)} of your 5-hour limit`
