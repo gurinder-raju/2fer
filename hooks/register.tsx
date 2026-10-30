@@ -76,6 +76,14 @@ const PATTERN_RUBRIC = [
   '{ "main": "the most common pattern, in one sentence, addressed to the speaker", "practice": "one thing to try next week, in one sentence" }',
 ].join('\n')
 
+const HELP = [
+  '/2fer opens your week.',
+  '/2fer session opens this session’s messages.',
+  '/2fer settings opens the settings.',
+  '/2fer model <opus, sonnet, haiku or none> picks the model.',
+  '/2fer pause stops notes in every session, until /2fer resume.',
+].join('\n')
+
 // Change the tag when Note's or Weekly's fields change: it declines what an
 // earlier version kept, which outlives a reload.
 const notes = atom({ plugin: '2fer', key: 'notes' } as const, {}, { shape: 'notes-6' })
@@ -120,9 +128,12 @@ async function shareOfLimit($: EngineInterface, model: string, usage: Usage): Pr
     // A new window, or a cleared session's ledger, starts the reading over.
     if (!from || now.percent < from.percent || now.usd < from.usd) await update($, reading, () => now)
     const worth = from ? pointWorth(from, now) : undefined
-    if (worth !== undefined) await $.store.set(POINT_WORTH, worth)
     const known = await $.store.get(POINT_WORTH)
-    return typeof known === 'number' ? costOf(model, usage) / known : undefined
+    // Other sessions fill the same window, which can only make a point look cheap, so the highest reading is the truest.
+    const best = Math.max(typeof known === 'number' ? known : 0, worth ?? 0)
+    if (best === 0) return undefined
+    if (best !== known) await $.store.set(POINT_WORTH, best)
+    return costOf(model, usage) / best
   } catch {
     return undefined
   }
@@ -175,8 +186,9 @@ async function write(
 async function review($: EngineInterface, text: string): Promise<void> {
   const key = keyOf(text)
   if ((await read($, notes))[key]) return
-  const at = await $.clock.now()
   const settings = await settingsOf($)
+  if (settings.paused) return
+  const at = await $.clock.now()
   const counted = CATEGORIES.filter(isCounted)
   const judged = CATEGORIES.filter(isJudged)
   const counts = countSpeech(text, counted)
@@ -204,27 +216,28 @@ async function review($: EngineInterface, text: string): Promise<void> {
   if (settings.model !== 'none') {
     await update($, notes, all => kept({ ...all, [key]: { ...note, status: 'pending' } }))
     const found = await write($, settings.model, text, counts, counted, judged)
-    if (!found) {
-      await update($, notes, ({ [key]: _, ...rest }) => rest)
-      return
-    }
-    const { review: r, usage } = found
-    const share = await shareOfLimit($, settings.model, usage)
-    judgedNotes = Object.fromEntries(judged.map(c => [c.id, r.notes[c.id] ?? '']).filter(([, n]) => n !== ''))
-    note = {
-      ...note,
-      scores: { ...scores, ...r.scores },
-      details: {
-        ...lines,
-        ...Object.fromEntries(judged.map(c => [c.id, [r.notes[c.id], c.hint?.(counts)].filter(Boolean).join(' ')])),
-      },
-      marks: r.marks,
-      before: r.before,
-      after: r.after,
-      tip: r.tip,
-      skeleton: r.skeleton,
-      usage,
-      ...(share === undefined ? {} : { share }),
+    if (found) {
+      const { review: r, usage } = found
+      const share = await shareOfLimit($, settings.model, usage)
+      judgedNotes = Object.fromEntries(judged.map(c => [c.id, r.notes[c.id] ?? '']).filter(([, n]) => n !== ''))
+      note = {
+        ...note,
+        scores: { ...scores, ...r.scores },
+        details: {
+          ...lines,
+          ...Object.fromEntries(judged.map(c => [c.id, [r.notes[c.id], c.hint?.(counts)].filter(Boolean).join(' ')])),
+        },
+        marks: r.marks,
+        before: r.before,
+        after: r.after,
+        tip: r.tip,
+        skeleton: r.skeleton,
+        usage,
+        ...(share === undefined ? {} : { share }),
+      }
+    } else {
+      // What code counted still stands, and the card says the model didn't answer.
+      note = { ...note, unanswered: true }
     }
   }
   await update($, notes, all => kept({ ...all, [key]: note }))
@@ -533,7 +546,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: '2fer',
-      description: 'Your week of speaking; "/2fer session" lists this session\'s messages, "/2fer settings" picks the model',
+      description: 'Your week of speaking; "/2fer session" lists this session\'s messages, "/2fer help" lists the rest',
     })
     const s = await settingsOf($)
     await update($, prefs, () => s)
@@ -619,7 +632,8 @@ export const register: Register = on => {
 
   // "/2fer" opens the weekly view; "/2fer session" this session's messages;
   // "/2fer settings" the settings; "/2fer model haiku" picks the model
-  // without a pane.
+  // without a pane; "/2fer pause" and "/2fer resume" stop and start the notes.
+  // Anything else lists the commands.
   on('command.run', { command: '2fer' }, async ($, e) => {
     const [verb = '', ...rest] = e.args.trim().toLowerCase().split(/\s+/)
     const arg = rest.join(' ')
@@ -636,6 +650,11 @@ export const register: Register = on => {
       await changeSettings($, s => ({ ...s, model: m.id }))
       return { text: `2fer now uses ${m.name}. ${m.about}` }
     }
+    if (verb === 'pause' || verb === 'resume') {
+      await changeSettings($, s => ({ ...s, paused: verb === 'pause' }))
+      return { text: verb === 'pause' ? '2fer is paused: no notes in any session, until /2fer resume.' : '2fer is back on.' }
+    }
+    if (verb !== '') return { text: HELP }
 
     if (await openWeek($)) return { text: 'Opened your week beside the chat.' }
     const w = await read($, weekly)
@@ -676,7 +695,7 @@ export const register: Register = on => {
     }
     const habits = CATEGORIES.filter(c => week.scores[c.id] !== undefined)
     const habit = habits.find(c => c.id === v.habit) ?? lowestOf(week)
-    if (!habit) return <Text dimColor>No scores this week for the categories that are on.</Text>
+    if (!habit) return <Text dimColor>No scores this week.</Text>
 
     // The chart's weeks: up to eight, ending at the week shown, less any it was stepped back.
     const end = at + 1 - v.earlier
@@ -1005,6 +1024,11 @@ export const register: Register = on => {
               </Box>
             </Box>
           ))}
+        </Box>
+        <Box flexDirection="column">
+          <Text weight="bold">Notes</Text>
+          <Text size="footnote" dimColor>{s.paused ? 'Paused in every session.' : 'On for each message you dictate.'}</Text>
+          <Button key="pause" plain label={s.paused ? 'Resume' : 'Pause'} onPress={() => changeSettings($, now => ({ ...now, paused: !now.paused }))} />
         </Box>
         <Button key="defaults" label="Back to the default" onPress={() => changeSettings($, () => DEFAULTS)} />
       </Box>

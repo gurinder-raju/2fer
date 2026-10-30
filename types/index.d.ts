@@ -12,9 +12,10 @@ export type Usage = {
   cacheWrite: number
 }
 
-/** Which model scores the notes, by its id in hooks/catalog.ts ('none' for counts only). */
+/** Which model scores the notes, by its id in hooks/catalog.ts ('none' for counts only), and whether notes are paused. */
 export type Settings = {
   model: string
+  paused?: boolean
 }
 
 /** A reading of the 5-hour window: how full it was, and what the session had spent by then, in dollars at list prices. */
@@ -42,6 +43,8 @@ export type Note = {
   usage: Usage | null
   /** About how much of the 5-hour limit the note used, in percent; absent until there is a reading to go on. */
   share?: number
+  /** True when the model gave no usable answer, so the note holds only what code counted. */
+  unanswered?: boolean
 }
 
 /** Where a counted habit's word fell: opening the message, starting a later sentence, ending one, or in the middle. */

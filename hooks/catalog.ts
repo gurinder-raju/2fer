@@ -242,5 +242,8 @@ export const DEFAULTS: Settings = { model: 'opus' }
 /** Settings as stored, with the default model for one that is missing or that the catalog no longer has. */
 export function toSettings(v: unknown): Settings {
   const s = typeof v === 'object' && v !== null ? (v as Partial<Settings>) : {}
-  return { model: MODELS.some(m => m.id === s.model) ? (s.model as string) : DEFAULTS.model }
+  return {
+    model: MODELS.some(m => m.id === s.model) ? (s.model as string) : DEFAULTS.model,
+    ...(s.paused === true ? { paused: true } : {}),
+  }
 }
