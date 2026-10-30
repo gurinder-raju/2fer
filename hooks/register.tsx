@@ -582,8 +582,8 @@ export const register: Register = on => {
           position="relative"
         >
           {done ? (
-            // Where the rings stand in for the word, the label still names the control.
-            <Button key={`2fer-${key}`} plain dimColor={!isOpen} label="2fer" onPress={() => showCard($, key)}>
+            // No label: the desktop draws a label over a Button's children.
+            <Button key={`2fer-${key}`} plain dimColor={!isOpen} onPress={() => showCard($, key)}>
               {graphical ? <Text size="heading" dimColor={!isOpen} hover={{ dimColor: false }}>{RINGS}</Text> : '2fer'}
             </Button>
           ) : (

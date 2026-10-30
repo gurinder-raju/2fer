@@ -173,7 +173,7 @@ test('a dictated message gets the 2fer mark: the pointer shows its pills, and a 
     // Under the message, the mark alone; the card waits for a press.
     const shown = await ui.find({ key: mark })
     expect(shown?.text).toBe(surface === 'terminal' ? '2fer' : '⚭')
-    expect(shown?.props.label).toBe('2fer')
+    expect(shown?.props.label).toBe(shown?.text)
     expect(await text(/^Out of 5/)).toBeUndefined()
     if (surface === 'desktop') {
       // The pointer on the mark shows every score as a pill, in the card's order, floating over the foot of the message.
