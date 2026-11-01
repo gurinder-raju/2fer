@@ -33,8 +33,8 @@ export type Rec = {
   places?: Record<string, Record<string, Partial<Record<Place, number>>>>
   model: string
   usage: Usage | null
-  /** True for a message that turned out not to be spoken: only its token use counts. */
-  skipped?: true
+  /** True for a message left out by the model or with Ignore: only its token use counts. */
+  ignored?: true
 }
 /** What a note's card shows, in the order it shows it. */
 export type Card = {
@@ -437,7 +437,7 @@ export function toRec(v: unknown): Rec | undefined {
     ...(obj(r.places) ? { places: obj(r.places) } : {}),
     model: typeof r.model === 'string' ? r.model : 'sonnet',
     usage: toUsage(r.usage),
-    ...(r.skipped === true ? { skipped: true as const } : {}),
+    ...(r.ignored === true ? { ignored: true as const } : {}),
   }
 }
 

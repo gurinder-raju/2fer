@@ -4,6 +4,8 @@ Speaking practice while you work. If you dictate your messages to Claude Code, 2
 
 The name is the idea: every message does two things. It gets your work done, and it trains you to speak more clearly.
 
+2fer tries to score only what you said. It can't see how a message was entered, so it cuts pastes and links, skips messages that read as typed, and has the scoring model check the rest. [How it finds dictated messages](#how-it-finds-dictated-messages) has the details.
+
 ## What it looks like
 
 These images are renderings of 2fer's own drawing code, with made-up messages and a made-up week. They aren't screenshots, so spacing can differ a little in the app, and the pointer and its blue labels are there only to show what was clicked or hovered over.
@@ -54,6 +56,7 @@ claude plugin install 2fer --marketplace gurinder-raju/2fer
 ## Use it
 
 - Dictate as you normally would. Each message of 15 words or more gets a note. Hover over its ⚭ mark to see its scores, or click it to open the card under the message.
+- **Ignore** on a card takes that message out of the session and your week.
 - `/2fer session`, or **This session ›** on any card, opens this session's messages beside the chat.
 - `/2fer` opens your week beside the chat.
 - `/2fer settings` opens the settings, where you choose the model. `/2fer model haiku` does the same from the prompt.
@@ -98,12 +101,21 @@ Each opened note shows the tokens it used, and the weekly view adds them up for 
 
 The weekly view sums up habits judged by the model, such as Buried point, with one more model request when you pick that habit, about the size of a note. The answer is kept, so the request runs again only when that week's notes change.
 
-## What it reviews, and what it keeps
+## How it finds dictated messages
 
-- **Which messages:** ones you send yourself that read as dictated prose, from a terminal, the desktop app, or a phone over Remote Control. Slash commands and messages from other plugins are skipped.
-- **What's left out first:** pastes the app marks, links, and long passages in double quotes. Nobody said those, so they aren't counted, scored, sent to the model or kept. A … shows where one was.
-- **What the rest has to look like:** 15 words or more, capitalized the way dictation writes, with no code, lists, Markdown, words in parentheses or a space before a colon.
-- **Typing and short pastes:** nothing tells 2fer how a message was entered, so it goes by the text, and some typing will get through. The model also decides whether each message reads as spoken. One that clearly doesn't gets no note, though its tokens are still used. For the rest, **I didn't say this** on a card takes that message out of your week, and the weekly view's last line counts what was skipped. Use `/2fer pause` when you're mostly typing.
+Nothing tells 2fer how a message was entered, so it works from the message itself, in four steps.
+
+1. **Who sent it.** Only messages you send yourself count, from a terminal, the desktop app, or a phone over Remote Control. Slash commands, scheduled tasks and messages from other plugins are skipped.
+2. **What nobody said.** Pastes the app marks, links, and long passages in double quotes are cut. They aren't counted, scored, sent to the model or kept, and a … shows where one was. The app marks only long pastes, so a short paste stays in.
+3. **Whether the rest looks spoken.** What's left needs 15 to 900 words, mostly plain words, with the capitals dictation writes: a capital first word and a capital "I". An "uh" or "um" counts as speech whatever the capitals. Code, tags, lists, Markdown, words in parentheses, a space before a colon, transcript timestamps and styled letters all rule a message out.
+4. **Whether the model agrees.** The scoring model decides whether the message reads as spoken. One that clearly doesn't gets no note, though its tokens are still used. With no model, this step doesn't run.
+
+These steps are judgment calls, so some careful typing gets through, mostly short, conversational messages. In a test on one person's messages, the model flagged 2 of 50 that passed step 3, and both read as written. It caught 12 of 25 typed messages cleaned up to look like dictation.
+
+**Ignore** on a card takes a message out of the session and your week, and the weekly view's last line counts what was ignored. Use `/2fer pause` when you're mostly typing.
+
+## What it sends, and what it keeps
+
 - **What the model sees:** only what's left of that one message.
 - **What's stored:**
   - **Within a session:** notes and the session pane's copy of your messages are kept in the session's own state.

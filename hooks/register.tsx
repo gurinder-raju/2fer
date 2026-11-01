@@ -152,19 +152,19 @@ async function write(
   }
 }
 
-/** Leaves out a message that wasn't spoken: its note and words go, and its token use stays for the week's count. */
-async function skip($: EngineInterface, key: string, stamp: string, model: string, usage: Usage | null): Promise<void> {
+/** Leaves a message out: its note and words go, and its token use stays for the week's count. */
+async function leaveOut($: EngineInterface, key: string, stamp: string, model: string, usage: Usage | null): Promise<void> {
   await update($, notes, all => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)))
   await $.store.delete(`quote:${stamp}`)
-  const rec: Rec = { words: 0, scores: {}, tallies: {}, model, usage, skipped: true }
+  const rec: Rec = { words: 0, scores: {}, tallies: {}, model, usage, ignored: true }
   await $.store.set(`msg:${stamp}`, rec)
   $.ui.invalidate('ui.render')
 }
 
-/** "I didn't say this": the card closes, and the message leaves the session and the week. */
-async function unsay($: EngineInterface, key: string, note: Note): Promise<void> {
+/** Ignore on a card: the card closes, and the message leaves the session and the week. */
+async function ignore($: EngineInterface, key: string, note: Note): Promise<void> {
   await update($, opened, () => '')
-  await skip($, key, `${dayOf(note.at)}:${note.at}:${key}`, note.model, note.usage)
+  await leaveOut($, key, `${dayOf(note.at)}:${note.at}:${key}`, note.model, note.usage)
 }
 
 async function review($: EngineInterface, message: string): Promise<void> {
@@ -204,7 +204,7 @@ async function review($: EngineInterface, message: string): Promise<void> {
     await update($, notes, all => kept({ ...all, [key]: { ...note, status: 'pending' } }))
     const found = await write($, settings.model, text, counts, counted, judged)
     if (found?.review.written) {
-      await skip($, key, stamp, settings.model, found.usage)
+      await leaveOut($, key, stamp, settings.model, found.usage)
       return
     }
     if (found) {
@@ -527,7 +527,7 @@ function cardOf$($: EngineInterface, els: ElementTable, note: Note, key: string,
       <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={2}>
         <Box flexDirection="row" alignItems="center" gap={2}>
           <Button key={`2fer-session-${key}`} plain label="This session ›" onPress={() => openSession($)} />
-          <Button key={`2fer-unsay-${key}`} plain dimColor label="I didn’t say this" onPress={() => unsay($, key, note)} />
+          <Button key={`2fer-ignore-${key}`} plain dimColor label="Ignore" onPress={() => ignore($, key, note)} />
         </Box>
         {label(c.foot)}
       </Box>
@@ -877,7 +877,7 @@ export const register: Register = on => {
         </Box>
         {v.back > 0 && <Text size="caption" dimColor>Your words are kept for seven days, so earlier weeks show scores and counts only.</Text>}
         <Text size="caption" dimColor>
-          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'}${week.skipped > 0 ? ` · ${week.skipped} skipped as typed` : ''} · ${kilo(week.tokens)} tokens`}
+          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'}${week.ignored > 0 ? ` · ${week.ignored} ignored` : ''} · ${kilo(week.tokens)} tokens`}
         </Text>
       </Box>
     )

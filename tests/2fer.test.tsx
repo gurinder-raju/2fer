@@ -353,10 +353,10 @@ test('a message the model reads as typed gets no note, and only its tokens count
   expect(await ui.find({ type: 'Text', text: /scoring/ })).toBeUndefined()
   await ui.unmount()
   const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
-  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, skipped: true }])
+  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, ignored: true }])
 })
 
-test('I didn’t say this takes a message out of the session and the week', async ($, on) => {
+test('Ignore takes a message out of the session and the week', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   const stored = storeOf(on)
   on('model.complete', () => ({ value: { isAnswered: true, text: JSON.stringify(REVIEW), usage: USAGE } }))
@@ -372,11 +372,11 @@ test('I didn’t say this takes a message out of the session and the week', asyn
   const key = keyOf(SAID)
   const ui = await $.ui.mount({ ...ROW, surface: 'desktop' })
   await ui.press({ key: `2fer-${key}` })
-  await ui.press({ key: `2fer-unsay-${key}` })
+  await ui.press({ key: `2fer-ignore-${key}` })
   expect(await ui.find({ key: `2fer-${key}` })).toBeUndefined()
   await ui.unmount()
   const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
-  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, skipped: true }])
+  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, ignored: true }])
 })
 
 test('at a session start, words go after a week, and what earlier versions kept moves or goes', async ($, on) => {
@@ -645,7 +645,7 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
     [`msg:${dayOf(last)}:${last}:a`]: rec({ fillers: 2, point: 2 }, { fillers: { like: 3 } }, { fillers: { like: { middle: 3 } } }),
     [`msg:${dayOf(b)}:${b}:b`]: rec({ fillers: 3, point: 3 }, { fillers: { like: 2, okay: 1 } }, { fillers: { like: { middle: 2 }, okay: { opener: 1 } } }),
     [`msg:${dayOf(c)}:${c}:c`]: rec({ fillers: 5, point: 5 }, { fillers: {} }, {}),
-    [`msg:${dayOf(c)}:${c + 1}:d`]: { words: 0, scores: {}, tallies: {}, model: 'sonnet', usage, skipped: true },
+    [`msg:${dayOf(c)}:${c + 1}:d`]: { words: 0, scores: {}, tallies: {}, model: 'sonnet', usage, ignored: true },
     [`quote:${dayOf(b)}:${b}:b`]: {
       excerpt: 'Okay so the cache, like, needs a copy.',
       snippets: { fillers: [{ text: 'so the cache, like, needs a copy.', start: 14, end: 18 }] },
@@ -688,7 +688,7 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
   expect(await text(/ · 5 on both$/)).toMatch(/^\w{3} \d{1,2}:\d{2} · 5 on both$/)
   expect(await text(/^Open with the ask\.$/)).toBe('Open with the ask.')
   expect(await text(/^In 2 of /)).toBe('In 2 of this week’s 2 notes')
-  expect(await text(/^2fer’s own use/)).toBe('2fer’s own use this week: 2 notes · 1 skipped as typed · 4.9k tokens')
+  expect(await text(/^2fer’s own use/)).toBe('2fer’s own use this week: 2 notes · 1 ignored · 4.9k tokens')
   expect(asked.length).toBe(0)
 
   // The same numbers as a table.

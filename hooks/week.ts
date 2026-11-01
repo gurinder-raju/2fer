@@ -50,13 +50,13 @@ export function minutesOf(w: Week): number {
 }
 
 function weekOf(from: string, to: string, all: readonly Rec[]): Week {
-  const recs = all.filter(r => !r.skipped)
+  const recs = all.filter(r => !r.ignored)
   const w: Week = {
     from,
     to,
     label: labelOf(from),
     messages: recs.length,
-    skipped: all.length - recs.length,
+    ignored: all.length - recs.length,
     words: 0,
     scores: {},
     grades: {},
