@@ -155,6 +155,9 @@ test('the counts and the marks come from code, and only dictated prose is review
   expect(isSpeech('Two things to change before this ships to everyone next week, and both are small:\n- the cache\n- the retry logic')).toBe(false)
   expect(isSpeech('Keep the cache small (one copy on each server) and add a test for the case that broke last week.')).toBe(false)
   expect(isSpeech('First song : too fast for me, and the second one is better but it still feels a little off to my ear.')).toBe(false)
+  // The habits and the rubric are English, so another language gets no note.
+  expect(isSpeech('Creo que deberíamos revisar primero el servidor y después hablar con el equipo sobre qué parte del informe falta, porque todavía no está claro.')).toBe(false)
+  expect(isSpeech('Ich glaube, wir sollten zuerst den Server prüfen und danach mit dem Team sprechen, weil noch nicht klar ist, welcher Teil fehlt.')).toBe(false)
 })
 
 test('a dictated message gets the 2fer mark: the pointer shows its pills, and a press opens its card under the message', async ($, on) => {
@@ -176,7 +179,7 @@ test('a dictated message gets the 2fer mark: the pointer shows its pills, and a 
   await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
   await clock.settle()
   expect(asked.length).toBe(1)
-  expect(asked[0].model).toBe('claude-opus-5-5')
+  expect(asked[0].model).toBe('claude-sonnet-5-5')
   expect(asked[0].effort).toBe('medium')
   expect(asked[0].prompt).toContain('<message>')
   // The model scores the four judged habits; code counts the other two.
@@ -252,7 +255,7 @@ test('a dictated message gets the 2fer mark: the pointer shows its pills, and a 
     expect(await text(/^Say the main point/)).toBe('Say the main point first.')
     expect(await text(/^“Keep a copy/)).toBe('“Keep a copy on each server.”')
     // What the note itself used, as the model call reported it.
-    expect(await text(/^Opus 5\.5 ·/)).toBe('Opus 5.5 · 1,630 tokens')
+    expect(await text(/^Sonnet 5\.5 ·/)).toBe('Sonnet 5.5 · 1,630 tokens')
     expect((await ui.find({ key: `2fer-session-${key}` }))?.text).toBe('This session ›')
 
     // The close mark puts it away again.
@@ -353,7 +356,7 @@ test('a message the model reads as typed gets no note, and only its tokens count
   expect(await ui.find({ type: 'Text', text: /scoring/ })).toBeUndefined()
   await ui.unmount()
   const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
-  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, ignored: true }])
+  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'sonnet', usage, ignored: true }])
 })
 
 test('Ignore takes a message out of the session and the week', async ($, on) => {
@@ -376,7 +379,7 @@ test('Ignore takes a message out of the session and the week', async ($, on) => 
   expect(await ui.find({ key: `2fer-${key}` })).toBeUndefined()
   await ui.unmount()
   const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
-  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, ignored: true }])
+  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'sonnet', usage, ignored: true }])
 })
 
 test('at a session start, words go after a week, and what earlier versions kept moves or goes', async ($, on) => {
@@ -455,23 +458,23 @@ test('the settings pane and the command choose the model', async ($, on) => {
   expect((await $.command.run({ command: '2fer', args: 'settings' })).text).toBe('Opened 2fer settings beside the chat.')
   expect((await $.command.run({ command: '2fer', args: 'session' })).text).toBe('Opened this session’s messages beside the chat.')
   const ui = await $.ui.mount({ ...SETTINGS_PANE, surface: 'desktop' })
-  expect((await ui.find({ key: 'model-opus' }))?.text).toBe('● Opus 5.5')
+  expect((await ui.find({ key: 'model-sonnet' }))?.text).toBe('● Sonnet 5.5')
   expect(await ui.find({ type: 'Text', text: /^Categories$/ })).toBeUndefined()
   await ui.press({ key: 'model-haiku' })
   expect((await ui.find({ key: 'model-haiku' }))?.text).toBe('● Haiku 5.5')
   await ui.unmount()
 
-  expect((await $.command.run({ command: '2fer', args: 'model sonnet' })).text).toContain('2fer now uses Sonnet 5.5.')
+  expect((await $.command.run({ command: '2fer', args: 'model opus' })).text).toContain('2fer now uses Opus 5.5.')
   expect((await $.command.run({ command: '2fer', args: 'model nonsense' })).text).toBe("2fer's models: opus, sonnet, haiku, none.")
   const again = await $.ui.mount({ ...SETTINGS_PANE, surface: 'terminal' })
-  expect((await again.find({ key: 'model-sonnet' }))?.text).toBe('● Sonnet 5.5')
+  expect((await again.find({ key: 'model-opus' }))?.text).toBe('● Opus 5.5')
   await again.unmount()
 
   // The next note goes to the chosen model.
   await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
   await clock.settle()
   expect(asked.length).toBe(1)
-  expect(asked[0].model).toBe('claude-sonnet-5-5')
+  expect(asked[0].model).toBe('claude-opus-5-5')
 })
 
 test('short, typed and plugin-sent messages get no note', async ($, on) => {
@@ -514,8 +517,83 @@ test('when the model gives no usable answer, the note keeps the counts and says 
   expect(await text(/^Fillers$/)).toBe('Fillers')
   expect(await text(/^Hedging$/)).toBe('Hedging')
   expect(await text(/^Incomplete$/)).toBeUndefined()
-  expect(await text(/^Word counts only/)).toBe('Word counts only: Opus 5.5 didn’t answer')
+  expect(await text(/^Word counts only/)).toBe('Word counts only: Sonnet 5.5 didn’t answer')
   await ui.unmount()
+})
+
+test('the model picked at install is where a person starts, until they pick another', { options: { model: 'haiku' } }, async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const stored = storeOf(on)
+  const asked: string[] = []
+  on('model.complete', (_, e) => {
+    asked.push(e.model)
+    return { value: { isAnswered: true, text: JSON.stringify(REVIEW), usage: USAGE } }
+  })
+  const logged: string[] = []
+  on('ui.log', (_, e) => {
+    logged.push(e.text)
+    return { value: undefined }
+  })
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('command.register', () => ({ value: { command: '2fer' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await clock.settle()
+
+  // The first session says what 2fer does and what it uses, once.
+  expect(logged.length).toBe(1)
+  expect(logged[0]).toContain('each note is one request to Haiku 5.5 on your plan or API bill')
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await clock.settle()
+  expect(logged.length).toBe(1)
+
+  await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
+  await clock.settle()
+  expect(asked).toEqual(['claude-haiku-5-5'])
+
+  // Pausing keeps no model, so the one from install still applies. Picking another does.
+  await $.command.run({ command: '2fer', args: 'pause' })
+  expect(stored.get('settings')).toEqual({ paused: true })
+  await $.command.run({ command: '2fer', args: 'resume' })
+  await $.command.run({ command: '2fer', args: 'model opus' })
+  expect(stored.get('settings')).toEqual({ model: 'opus' })
+})
+
+test('someone who already has notes hears nothing, and keeps the Opus those notes used', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const stored = storeOf(on, [[`msg:${dayOf(NOW)}:${NOW}:a`, { words: 120, scores: {}, tallies: {}, model: 'opus', usage: null }]])
+  const logged: string[] = []
+  on('ui.log', (_, e) => {
+    logged.push(e.text)
+    return { value: undefined }
+  })
+  on('command.register', () => ({ value: { command: '2fer' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await clock.settle()
+  expect(logged).toEqual([])
+  expect(stored.get('settings')).toEqual({ model: 'opus' })
+})
+
+test('/2fer forget asks first, then deletes everything but the settings', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const stored = storeOf(on, [
+    ['settings', { model: 'haiku' }],
+    ['welcomed', true],
+    ['tips-moved', true],
+    [`msg:${dayOf(NOW)}:${NOW}:a`, { words: 120, scores: {}, tallies: {}, model: 'haiku', usage: null }],
+    [`quote:${dayOf(NOW)}:${NOW}:a`, { excerpt: 'Keep a copy.', snippets: {}, notes: {}, tip: '' }],
+    [`pattern:${dayOf(NOW)}:point`, { main: 'A pattern.', practice: '', notes: 1 }],
+  ])
+  on('command.register', () => ({ value: { command: '2fer' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await clock.settle()
+
+  expect((await $.command.run({ command: '2fer', args: 'forget' })).text).toContain('/2fer forget confirm')
+  expect(stored.size).toBe(6)
+  expect((await $.command.run({ command: '2fer', args: 'forget confirm' })).text).toBe('Everything 2fer kept is gone, apart from your settings.')
+  expect([...stored.keys()].sort()).toEqual(['settings', 'tips-moved', 'welcomed'])
 })
 
 test('/2fer pause stops notes until /2fer resume, and /2fer help lists the commands', async ($, on) => {

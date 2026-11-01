@@ -54,6 +54,8 @@ const NOTE_TOKENS = 6000
 const PATTERN_TOKENS = 3000
 // The store key that says the 2fers earlier versions kept have been moved.
 const TIPS_MOVED = 'tips-moved'
+// The store key that says the first session has been and gone.
+const WELCOMED = 'welcomed'
 // The card's width beside a message on a graphical surface; a pill's width keeps the lines beside the pills aligned.
 const CARD_COLS = 68
 const PILL_COLS = 16
@@ -80,6 +82,7 @@ const HELP = [
   '/2fer settings opens the settings.',
   '/2fer model <opus, sonnet, haiku or none> picks the model.',
   '/2fer pause stops notes in every session, until /2fer resume.',
+  '/2fer forget deletes everything 2fer has kept, apart from your settings.',
 ].join('\n')
 
 // Change the tag when Note's or Weekly's fields change: it declines what an
@@ -93,6 +96,9 @@ const view = atom({ plugin: '2fer', key: 'view' } as const, { back: 0, habit: ''
 const patterns = atom({ plugin: '2fer', key: 'patterns' } as const, {})
 // The settings as the panes draw them; $.store keeps them across sessions.
 const prefs = atom({ plugin: '2fer', key: 'prefs' } as const, DEFAULTS)
+
+// The model a person starts with: their pick when they installed, or the default.
+let startingModel = DEFAULTS.model
 
 function kept(all: Record<string, Note>): Record<string, Note> {
   return Object.fromEntries(Object.entries(all).slice(-NOTES_KEPT))
@@ -109,15 +115,46 @@ function modelOf(id: string): string {
 }
 
 async function settingsOf($: EngineInterface): Promise<Settings> {
-  return toSettings(await $.store.get('settings'))
+  return toSettings(await $.store.get('settings'), startingModel)
 }
 
 async function changeSettings($: EngineInterface, change: (s: Settings) => Settings): Promise<Settings> {
-  const next = toSettings(change(await settingsOf($)))
-  await $.store.set('settings', next)
+  const next = toSettings(change(await settingsOf($)), startingModel)
+  // Only a model picked over the starting one is kept, so a new starting model still applies.
+  const { model, ...rest } = next
+  await $.store.set('settings', model === startingModel ? rest : next)
   await update($, prefs, () => next)
   $.ui.invalidate('ui.render')
   return next
+}
+
+/**
+ * The first session 2fer runs in says what it does and what it uses. Someone
+ * with notes from before the starting model could be picked is told nothing,
+ * and keeps Opus, which those versions used.
+ */
+async function welcome($: EngineInterface): Promise<void> {
+  if (await $.store.get(WELCOMED)) return
+  await $.store.set(WELCOMED, true)
+  if ((await $.store.keys()).some(key => key.startsWith('msg:'))) {
+    await $.store.set('settings', toSettings(await $.store.get('settings'), 'opus'))
+    return
+  }
+  const m = MODELS.find(x => x.id === (startingModel as string))
+  const use = m?.model ? `each note is one request to ${m.name} on your plan or API bill` : 'it only counts words, with no model'
+  $.ui.log(`2fer is on. It scores messages you dictate in English, and ${use}. /2fer settings changes the model, /2fer pause stops notes, and /2fer help lists the rest.`)
+}
+
+/** Deletes everything 2fer keeps but its settings, and what this session holds. */
+async function forget($: EngineInterface): Promise<void> {
+  for (const key of await $.store.keys()) {
+    if (/^(?:msg|quote|pattern):/.test(key)) await $.store.delete(key)
+  }
+  await update($, notes, () => ({}))
+  await update($, patterns, () => ({}))
+  await update($, weekly, () => null)
+  await update($, opened, () => '')
+  $.ui.invalidate('ui.render')
 }
 
 // Each note is its own request to the chosen model, with no history and no
@@ -550,12 +587,15 @@ function rowsOf(widths: readonly number[], columns: number): number {
   return rows
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  startingModel = toSettings({ model: options.model }).model
+
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: '2fer',
       description: 'Your week of speaking; "/2fer session" lists this session\'s messages, "/2fer help" lists the rest',
     })
+    await welcome($).catch(err => fail($, String(err)))
     const s = await settingsOf($)
     await update($, prefs, () => s)
     void prune($).catch(err => fail($, String(err)))
@@ -661,6 +701,11 @@ export const register: Register = on => {
     if (verb === 'pause' || verb === 'resume') {
       await changeSettings($, s => ({ ...s, paused: verb === 'pause' }))
       return { text: verb === 'pause' ? '2fer is paused: no notes in any session, until /2fer resume.' : '2fer is back on.' }
+    }
+    if (verb === 'forget') {
+      if (arg !== 'confirm') return { text: 'This deletes your scores, counts and kept words for good. Your settings stay. To go ahead, run /2fer forget confirm.' }
+      await forget($)
+      return { text: 'Everything 2fer kept is gone, apart from your settings.' }
     }
     if (verb !== '') return { text: HELP }
 
@@ -1040,7 +1085,7 @@ export const register: Register = on => {
           <Text size="footnote" dimColor>{s.paused ? 'Paused in every session.' : 'On for each message you dictate.'}</Text>
           <Button key="pause" plain label={s.paused ? 'Resume' : 'Pause'} onPress={() => changeSettings($, now => ({ ...now, paused: !now.paused }))} />
         </Box>
-        <Button key="defaults" label="Back to the default" onPress={() => changeSettings($, () => DEFAULTS)} />
+        <Button key="defaults" label="Back to the default" onPress={() => changeSettings($, () => ({ model: startingModel }))} />
       </Box>
     )
   })

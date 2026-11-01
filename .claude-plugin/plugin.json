@@ -5,6 +5,17 @@
   "author": { "name": "Gurinder Raju" },
   "repository": "https://github.com/gurinder-raju/2fer",
   "homepage": "https://github.com/gurinder-raju/2fer#what-it-looks-like",
+  "privacyPolicyUrl": "https://github.com/gurinder-raju/2fer/blob/main/PRIVACY.md",
+  "supportUrl": "https://github.com/gurinder-raju/2fer/issues",
+  "userConfig": {
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "The model 2fer starts with. Each note is one request on your plan or API bill: opus is the most careful, sonnet uses about half of that, haiku about a fortieth, and none only counts words. /2fer model changes it later.",
+      "options": ["opus", "sonnet", "haiku", "none"],
+      "default": "sonnet"
+    }
+  },
   "screenshots": [
     "https://raw.githubusercontent.com/gurinder-raju/2fer/main/images/inline-card.png",
     "https://raw.githubusercontent.com/gurinder-raju/2fer/main/images/session-pane.png",
