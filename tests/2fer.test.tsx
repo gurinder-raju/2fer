@@ -145,7 +145,7 @@ test('the counts and the marks come from code, and only dictated prose is review
   expect(normalize(spokenOf(wrapped))).toBe(`${around} … I want to send it to the whole team by the end of the week.`)
   expect(isSpeech(wrapped)).toBe(true)
   expect(isSpeech(`${around} ${report}`)).toBe(false)
-  expect(isSpeech('Will these hands fit? https://shop.example.com/item/3256812074203609?currency=USD&source=google&page=listing&ref=watch&size=large')).toBe(false)
+  expect(isSpeech('Will these hands fit? https://example.com/item/3256812074203609?currency=USD&source=google&page=listing&ref=watch&size=large')).toBe(false)
   expect(normalize(spokenOf('So I read the article (https://example.com/post). It was good.'))).toBe('So I read the article ( … ). It was good.')
   expect(isSpeech(`Tell them this from me when you get the chance today please: “${post}”`)).toBe(false)
   // Short quotes stay, and so do the words between them.
