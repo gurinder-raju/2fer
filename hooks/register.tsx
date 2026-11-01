@@ -11,7 +11,6 @@ import {
   averagesOf,
   cardOf,
   clockOf,
-  costOf,
   countGrade,
   countSpeech,
   dayOf,
@@ -22,9 +21,7 @@ import {
   normalize,
   numberWord,
   parseReview,
-  percentOf,
   placesOf,
-  pointWorth,
   praiseOf,
   runsOf,
   snippetsOf,
@@ -54,8 +51,6 @@ const CHART_WEEKS = 8
 const EFFORT = 'medium'
 const NOTE_TOKENS = 6000
 const PATTERN_TOKENS = 3000
-// The store key for what a point of the 5-hour window is worth.
-const POINT_WORTH = 'point-worth'
 // The card's width beside a message on a graphical surface; a pill's width keeps the lines beside the pills aligned.
 const CARD_COLS = 68
 const PILL_COLS = 16
@@ -86,16 +81,15 @@ const HELP = [
 
 // Change the tag when Note's or Weekly's fields change: it declines what an
 // earlier version kept, which outlives a reload.
-const notes = atom({ plugin: '2fer', key: 'notes' } as const, {}, { shape: 'notes-6' })
+const notes = atom({ plugin: '2fer', key: 'notes' } as const, {}, { shape: 'notes-7' })
 const opened = atom({ plugin: '2fer', key: 'opened' } as const, '')
 // The habit the session pane is narrowed to, by id; empty for every message.
 const focus = atom({ plugin: '2fer', key: 'focus' } as const, '')
-const weekly = atom({ plugin: '2fer', key: 'weekly' } as const, null, { shape: 'weekly-1' })
+const weekly = atom({ plugin: '2fer', key: 'weekly' } as const, null, { shape: 'weekly-2' })
 const view = atom({ plugin: '2fer', key: 'view' } as const, { back: 0, habit: '', earlier: 0, table: false })
 const patterns = atom({ plugin: '2fer', key: 'patterns' } as const, {})
 // The settings as the panes draw them; $.store keeps them across sessions.
 const prefs = atom({ plugin: '2fer', key: 'prefs' } as const, DEFAULTS)
-const reading = atom({ plugin: '2fer', key: 'reading' } as const, null)
 
 function kept(all: Record<string, Note>): Record<string, Note> {
   return Object.fromEntries(Object.entries(all).slice(-NOTES_KEPT))
@@ -109,34 +103,6 @@ function fail($: EngineInterface, why: string): undefined {
 /** The full model id a setting asks for. */
 function modelOf(id: string): string {
   return MODELS.find(m => m.id === id)?.model ?? id
-}
-
-/**
- * A note's share of the 5-hour limit in percent, once there is a reading to
- * go on. The plan reports only how full the whole window is, so each note
- * reads it, and what a point of the window is worth comes from how far it
- * moved while this session spent; the note is weighed the same way, at list
- * prices. The worth outlives the session; an API key has no such window.
- */
-async function shareOfLimit($: EngineInterface, model: string, usage: Usage): Promise<number | undefined> {
-  try {
-    const { rateLimits, cost } = await $.session.usage()
-    const window = rateLimits.find(r => r.kind === 'five_hour')
-    if (!window || !cost) return undefined
-    const now = { percent: window.percentUsed, usd: cost.usd }
-    const from = await read($, reading)
-    // A new window, or a cleared session's ledger, starts the reading over.
-    if (!from || now.percent < from.percent || now.usd < from.usd) await update($, reading, () => now)
-    const worth = from ? pointWorth(from, now) : undefined
-    const known = await $.store.get(POINT_WORTH)
-    // Other sessions fill the same window, which can only make a point look cheap, so the highest reading is the truest.
-    const best = Math.max(typeof known === 'number' ? known : 0, worth ?? 0)
-    if (best === 0) return undefined
-    if (best !== known) await $.store.set(POINT_WORTH, best)
-    return costOf(model, usage) / best
-  } catch {
-    return undefined
-  }
 }
 
 async function settingsOf($: EngineInterface): Promise<Settings> {
@@ -218,7 +184,6 @@ async function review($: EngineInterface, text: string): Promise<void> {
     const found = await write($, settings.model, text, counts, counted, judged)
     if (found) {
       const { review: r, usage } = found
-      const share = await shareOfLimit($, settings.model, usage)
       judgedNotes = Object.fromEntries(judged.map(c => [c.id, r.notes[c.id] ?? '']).filter(([, n]) => n !== ''))
       note = {
         ...note,
@@ -233,7 +198,6 @@ async function review($: EngineInterface, text: string): Promise<void> {
         tip: r.tip,
         skeleton: r.skeleton,
         usage,
-        ...(share === undefined ? {} : { share }),
       }
     } else {
       // What code counted still stands, and the card says the model didn't answer.
@@ -266,6 +230,8 @@ async function prune($: EngineInterface): Promise<void> {
     const [kind, day = ''] = key.split(':')
     if ((kind === 'msg' || kind === 'pattern') && day < kept) await $.store.delete(key)
     if (kind === 'quote' && day < quoted) await $.store.delete(key)
+    // Earlier versions kept what a point of the 5-hour window was worth.
+    if (kind === 'point-worth') await $.store.delete(key)
   }
 }
 
@@ -298,8 +264,7 @@ async function weeklyOf($: EngineInterface): Promise<Weekly> {
     }
     keptWeeks.push({ back, examples: examplesOf(inWeek), best: bestOf(inWeek) })
   }
-  const worth = await $.store.get(POINT_WORTH)
-  return { today, weeks, kept: keptWeeks, ...(typeof worth === 'number' ? { worth } : {}) }
+  return { today, weeks, kept: keptWeeks }
 }
 
 /**
@@ -865,9 +830,7 @@ export const register: Register = on => {
           )}
         </Box>
         <Text size="caption" dimColor>
-          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'} · ${kilo(week.tokens)} tokens${
-            w.worth === undefined ? '' : ` · ${percentOf(week.cost / w.worth)} of a 5-hour limit`
-          }`}
+          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'} · ${kilo(week.tokens)} tokens`}
         </Text>
       </Box>
     )

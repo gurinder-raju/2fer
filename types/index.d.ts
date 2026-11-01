@@ -18,9 +18,6 @@ export type Settings = {
   paused?: boolean
 }
 
-/** A reading of the 5-hour window: how full it was, and what the session had spent by then, in dollars at list prices. */
-export type Reading = { percent: number; usd: number }
-
 export type Note = {
   status: 'pending' | 'done'
   /** When the message was sent, in milliseconds since the epoch. */
@@ -41,8 +38,6 @@ export type Note = {
   skeleton: string
   model: string
   usage: Usage | null
-  /** About how much of the 5-hour limit the note used, in percent; absent until there is a reading to go on. */
-  share?: number
   /** True when the model gave no usable answer, so the note holds only what code counted. */
   unanswered?: boolean
 }
@@ -81,8 +76,6 @@ export type Week = {
   present: Record<string, number>
   tips: string[]
   tokens: number
-  /** What those tokens come to at list prices, to weigh them against the 5-hour limit. */
-  cost: number
 }
 
 /** The week's best-scored message, as its excerpt keeps it. */
@@ -95,8 +88,6 @@ export type Weekly = {
   weeks: Week[]
   /** For the two weeks quotes are kept for, by how many weeks back: each habit's examples, and the best message. */
   kept: { back: number; examples: Record<string, Snippet[]>; best: Best | null }[]
-  /** What a point of the 5-hour window is worth, once a note has worked it out. */
-  worth?: number
 }
 
 /** Which week the view shows, which habit is picked, how far back the chart reaches, and whether it shows a table. */
@@ -118,8 +109,6 @@ declare module 'claude-code' {
       /** Judged habits' weekly patterns, by "<first day>:<category id>". */
       patterns: Record<string, Pattern>
       prefs: Settings
-      /** The 5-hour window's first reading in this session, or since it last reset. */
-      reading: Reading | null
     }
   }
 }

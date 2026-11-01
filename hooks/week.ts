@@ -4,7 +4,7 @@
 
 import type { Best, Place, Quotes, Snippet, Week } from '../types'
 import { CATEGORIES } from './catalog'
-import { costOf, dayOf, tokensOf } from './speech'
+import { dayOf, tokensOf } from './speech'
 import type { Rec } from './speech'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -63,7 +63,6 @@ function weekOf(from: string, to: string, recs: readonly Rec[]): Week {
     present: {},
     tips: [],
     tokens: 0,
-    cost: 0,
   }
   for (const c of CATEGORIES) {
     const xs = recs.map(r => r.scores[c.id] ?? 0).filter(g => g > 0)
@@ -74,10 +73,7 @@ function weekOf(from: string, to: string, recs: readonly Rec[]): Week {
   for (const r of recs) {
     w.words += r.words
     if (r.tip) w.tips.push(r.tip)
-    if (r.usage) {
-      w.tokens += tokensOf(r.usage)
-      w.cost += costOf(r.model, r.usage)
-    }
+    if (r.usage) w.tokens += tokensOf(r.usage)
     for (const [id, found] of Object.entries(r.tallies)) {
       const tally = (w.tallies[id] ??= {})
       for (const [name, n] of Object.entries(found)) tally[name] = (tally[name] ?? 0) + n
