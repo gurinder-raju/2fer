@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { CATEGORIES, isCounted } from '../hooks/catalog'
-import { countGrade, countSpeech, dayOf, isSpeech, keyOf, placesOf, quotesOf, runsOf, snippetsOf } from '../hooks/speech'
+import { countGrade, countSpeech, dayOf, isSpeech, keyOf, normalize, placesOf, quotesOf, runsOf, snippetsOf, spokenOf } from '../hooks/speech'
 
 // Made up, in the shape dictation writes: a restart, a filler, two hedges.
 const SAID =
@@ -135,6 +135,26 @@ test('the counts and the marks come from code, and only dictated prose is review
   expect(isSpeech('one thing that i have been pondering is how i can get better at public speaking this year')).toBe(false)
   // "i.e." is no sign of typing, though a lone lowercase "i" is.
   expect(isSpeech('Keep the cache small, i.e. one copy on each server, and add a test for the case that broke.')).toBe(true)
+  // Nobody types an "uh", so it outweighs a message that opens in lowercase.
+  expect(isSpeech('and then uh, the other thing we should look at is whether the server restarts when the config changes')).toBe(true)
+
+  // What nobody said is cut first: the app's tagged pastes, links, and long passages in quotes.
+  const report = `<pasted_content id="ab12">\n${post}\n</pasted_content id="ab12">`
+  const around = 'Can you read this and tell me if it sounds right?'
+  const wrapped = `${around} ${report} I want to send it to the whole team by the end of the week.`
+  expect(normalize(spokenOf(wrapped))).toBe(`${around} … I want to send it to the whole team by the end of the week.`)
+  expect(isSpeech(wrapped)).toBe(true)
+  expect(isSpeech(`${around} ${report}`)).toBe(false)
+  expect(isSpeech('Will these hands fit? https://shop.example.com/item/3256812074203609?currency=USD&source=google&page=listing&ref=watch&size=large')).toBe(false)
+  expect(normalize(spokenOf('So I read the article (https://example.com/post). It was good.'))).toBe('So I read the article ( … ). It was good.')
+  expect(isSpeech(`Tell them this from me when you get the chance today please: “${post}”`)).toBe(false)
+  // Short quotes stay, and so do the words between them.
+  const both = 'I said "yes" and then we talked for a long while about the plan before she said "no" to it.'
+  expect(spokenOf(both)).toBe(both)
+  // Marks only a keyboard leaves: nobody dictates a list, a bracketed aside or a space before a colon.
+  expect(isSpeech('Two things to change before this ships to everyone next week, and both are small:\n- the cache\n- the retry logic')).toBe(false)
+  expect(isSpeech('Keep the cache small (one copy on each server) and add a test for the case that broke last week.')).toBe(false)
+  expect(isSpeech('First song : too fast for me, and the second one is better but it still feels a little off to my ear.')).toBe(false)
 })
 
 test('a dictated message gets the 2fer mark: the pointer shows its pills, and a press opens its card under the message', async ($, on) => {
@@ -282,6 +302,81 @@ test('a note keeps numbers for the trend, with its words and its 2fer apart', as
   const record = (kind: string) => [...stored].find(([key]) => key.startsWith(kind))?.[1] as Record<string, unknown>
   expect(Object.keys(record('msg:')).sort()).toEqual(['model', 'places', 'scores', 'tallies', 'usage', 'words'])
   expect(record('quote:').tip).toBe(REVIEW.tip)
+})
+
+test('a paste is left out of what is counted, sent and kept, and a message with too little left gets no note', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const stored = storeOf(on)
+  const asked: string[] = []
+  on('model.complete', (_, e) => {
+    asked.push(e.prompt)
+    return { value: { isAnswered: true, text: JSON.stringify(REVIEW), usage: USAGE } }
+  })
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>the row</Text>
+  })
+  const paste = '<pasted_content id="ab12">\nThe quarterly review covers every region.\n</pasted_content id="ab12">'
+  await $.prompt.submit({ text: `Why is this failing? ${paste}`, origin: { kind: 'sdk' } })
+  await clock.settle()
+  expect(asked.length).toBe(0)
+
+  const message = `${SAID} ${paste}`
+  await $.prompt.submit({ text: message, origin: { kind: 'sdk' } })
+  await clock.settle()
+  expect(asked[0]).toContain('keep the database calm')
+  expect(asked[0]).not.toContain('quarterly')
+  const record = (kind: string) => [...stored].find(([key]) => key.startsWith(kind))?.[1] as Record<string, unknown>
+  expect(record('msg:').words).toBe(countSpeech(SAID, COUNTED).words)
+  expect(JSON.stringify(record('quote:'))).not.toContain('quarterly')
+
+  // The note still sits under the message as it was sent.
+  const ui = await $.ui.mount({ ...ROW, props: { ...ROW.props, text: message }, surface: 'desktop' })
+  expect(await ui.find({ key: `2fer-${keyOf(message)}` })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a message the model reads as typed gets no note, and only its tokens count', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const stored = storeOf(on)
+  on('model.complete', () => ({ value: { isAnswered: true, text: '{"spoken": false}', usage: USAGE } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>the row</Text>
+  })
+  await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
+  await clock.settle()
+  const ui = await $.ui.mount({ ...ROW, surface: 'desktop' })
+  expect(await ui.find({ key: `2fer-${keyOf(SAID)}` })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /scoring/ })).toBeUndefined()
+  await ui.unmount()
+  const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
+  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, skipped: true }])
+})
+
+test('I didn’t say this takes a message out of the session and the week', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const stored = storeOf(on)
+  on('model.complete', () => ({ value: { isAnswered: true, text: JSON.stringify(REVIEW), usage: USAGE } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>the row</Text>
+  })
+  await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
+  await clock.settle()
+  expect([...stored.keys()].filter(k => k.startsWith('quote:')).length).toBe(1)
+
+  const key = keyOf(SAID)
+  const ui = await $.ui.mount({ ...ROW, surface: 'desktop' })
+  await ui.press({ key: `2fer-${key}` })
+  await ui.press({ key: `2fer-unsay-${key}` })
+  expect(await ui.find({ key: `2fer-${key}` })).toBeUndefined()
+  await ui.unmount()
+  const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
+  expect([...stored.values()]).toEqual([{ words: 0, scores: {}, tallies: {}, model: 'opus', usage, skipped: true }])
 })
 
 test('at a session start, words go after a week, and what earlier versions kept moves or goes', async ($, on) => {
@@ -550,6 +645,7 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
     [`msg:${dayOf(last)}:${last}:a`]: rec({ fillers: 2, point: 2 }, { fillers: { like: 3 } }, { fillers: { like: { middle: 3 } } }),
     [`msg:${dayOf(b)}:${b}:b`]: rec({ fillers: 3, point: 3 }, { fillers: { like: 2, okay: 1 } }, { fillers: { like: { middle: 2 }, okay: { opener: 1 } } }),
     [`msg:${dayOf(c)}:${c}:c`]: rec({ fillers: 5, point: 5 }, { fillers: {} }, {}),
+    [`msg:${dayOf(c)}:${c + 1}:d`]: { words: 0, scores: {}, tallies: {}, model: 'sonnet', usage, skipped: true },
     [`quote:${dayOf(b)}:${b}:b`]: {
       excerpt: 'Okay so the cache, like, needs a copy.',
       snippets: { fillers: [{ text: 'so the cache, like, needs a copy.', start: 14, end: 18 }] },
@@ -592,7 +688,7 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
   expect(await text(/ · 5 on both$/)).toMatch(/^\w{3} \d{1,2}:\d{2} · 5 on both$/)
   expect(await text(/^Open with the ask\.$/)).toBe('Open with the ask.')
   expect(await text(/^In 2 of /)).toBe('In 2 of this week’s 2 notes')
-  expect(await text(/^2fer’s own use/)).toBe('2fer’s own use this week: 2 notes · 3.3k tokens')
+  expect(await text(/^2fer’s own use/)).toBe('2fer’s own use this week: 2 notes · 1 skipped as typed · 4.9k tokens')
   expect(asked.length).toBe(0)
 
   // The same numbers as a table.

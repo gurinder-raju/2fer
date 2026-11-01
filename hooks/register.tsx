@@ -25,6 +25,7 @@ import {
   praiseOf,
   runsOf,
   snippetsOf,
+  spokenOf,
   tally,
   toQuotes,
   toRec,
@@ -87,7 +88,7 @@ const notes = atom({ plugin: '2fer', key: 'notes' } as const, {}, { shape: 'note
 const opened = atom({ plugin: '2fer', key: 'opened' } as const, '')
 // The habit the session pane is narrowed to, by id; empty for every message.
 const focus = atom({ plugin: '2fer', key: 'focus' } as const, '')
-const weekly = atom({ plugin: '2fer', key: 'weekly' } as const, null, { shape: 'weekly-2' })
+const weekly = atom({ plugin: '2fer', key: 'weekly' } as const, null, { shape: 'weekly-3' })
 const view = atom({ plugin: '2fer', key: 'view' } as const, { back: 0, habit: '', earlier: 0, table: false })
 const patterns = atom({ plugin: '2fer', key: 'patterns' } as const, {})
 // The settings as the panes draw them; $.store keeps them across sessions.
@@ -151,12 +152,30 @@ async function write(
   }
 }
 
-async function review($: EngineInterface, text: string): Promise<void> {
-  const key = keyOf(text)
+/** Leaves out a message that wasn't spoken: its note and words go, and its token use stays for the week's count. */
+async function skip($: EngineInterface, key: string, stamp: string, model: string, usage: Usage | null): Promise<void> {
+  await update($, notes, all => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)))
+  await $.store.delete(`quote:${stamp}`)
+  const rec: Rec = { words: 0, scores: {}, tallies: {}, model, usage, skipped: true }
+  await $.store.set(`msg:${stamp}`, rec)
+  $.ui.invalidate('ui.render')
+}
+
+/** "I didn't say this": the card closes, and the message leaves the session and the week. */
+async function unsay($: EngineInterface, key: string, note: Note): Promise<void> {
+  await update($, opened, () => '')
+  await skip($, key, `${dayOf(note.at)}:${note.at}:${key}`, note.model, note.usage)
+}
+
+async function review($: EngineInterface, message: string): Promise<void> {
+  const key = keyOf(message)
   if ((await read($, notes))[key]) return
   const settings = await settingsOf($)
   if (settings.paused) return
   const at = await $.clock.now()
+  const stamp = `${dayOf(at)}:${at}:${key}`
+  // Pastes and links are left out from here on, of what is counted, sent and kept.
+  const text = spokenOf(message)
   const counted = CATEGORIES.filter(isCounted)
   const judged = CATEGORIES.filter(isJudged)
   const counts = countSpeech(text, counted)
@@ -184,6 +203,10 @@ async function review($: EngineInterface, text: string): Promise<void> {
   if (settings.model !== 'none') {
     await update($, notes, all => kept({ ...all, [key]: { ...note, status: 'pending' } }))
     const found = await write($, settings.model, text, counts, counted, judged)
+    if (found?.review.written) {
+      await skip($, key, stamp, settings.model, found.usage)
+      return
+    }
     if (found) {
       const { review: r, usage } = found
       judgedNotes = Object.fromEntries(judged.map(c => [c.id, r.notes[c.id] ?? '']).filter(([, n]) => n !== ''))
@@ -207,7 +230,6 @@ async function review($: EngineInterface, text: string): Promise<void> {
     }
   }
   await update($, notes, all => kept({ ...all, [key]: note }))
-  const stamp = `${dayOf(at)}:${at}:${key}`
   const rec: Rec = {
     words: note.words,
     scores: note.scores,
@@ -502,8 +524,11 @@ function cardOf$($: EngineInterface, els: ElementTable, note: Note, key: string,
           <Text size="footnote">{c.skeleton}</Text>
         </Box>
       )}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={2}>
-        <Button key={`2fer-session-${key}`} plain label="This session ›" onPress={() => openSession($)} />
+      <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap={2}>
+        <Box flexDirection="row" alignItems="center" gap={2}>
+          <Button key={`2fer-session-${key}`} plain label="This session ›" onPress={() => openSession($)} />
+          <Button key={`2fer-unsay-${key}`} plain dimColor label="I didn’t say this" onPress={() => unsay($, key, note)} />
+        </Box>
         {label(c.foot)}
       </Box>
     </Box>
@@ -852,7 +877,7 @@ export const register: Register = on => {
         </Box>
         {v.back > 0 && <Text size="caption" dimColor>Your words are kept for seven days, so earlier weeks show scores and counts only.</Text>}
         <Text size="caption" dimColor>
-          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'} · ${kilo(week.tokens)} tokens`}
+          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'}${week.skipped > 0 ? ` · ${week.skipped} skipped as typed` : ''} · ${kilo(week.tokens)} tokens`}
         </Text>
       </Box>
     )

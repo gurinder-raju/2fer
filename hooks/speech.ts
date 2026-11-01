@@ -15,8 +15,10 @@ export type Counts = {
   /** The words each counted category found, and how often. */
   tallies: Record<string, Record<string, number>>
 }
-/** What the model judges: a score and a note for each judged category, then the rewrite. */
+/** What the model judges: whether it was said at all, a score and a note for each judged category, then the rewrite. */
 export type Review = Pick<Note, 'before' | 'after' | 'tip' | 'skeleton'> & {
+  /** True when the model read the message as typed or pasted, not said. */
+  written: boolean
   scores: Record<string, Grade>
   notes: Record<string, string>
   /** The passages the model copied out for each judged category that marks them. */
@@ -31,6 +33,8 @@ export type Rec = {
   places?: Record<string, Record<string, Partial<Record<Place, number>>>>
   model: string
   usage: Usage | null
+  /** True for a message that turned out not to be spoken: only its token use counts. */
+  skipped?: true
 }
 /** What a note's card shows, in the order it shows it. */
 export type Card = {
@@ -87,16 +91,44 @@ export function sentencesAt(t: string): Piece[] {
   return found
 }
 
+// The app's marks around a long paste: the same id opens and closes one.
+const PASTE = /<pasted_content id="([0-9a-f]+)">[\s\S]*?<\/pasted_content id="\1">/g
+
 /**
- * Whether a message reads as dictated speech: long enough, capitalised the
- * way dictation writes it, and prose rather than code or a paste.
+ * A message with what nobody said cut out: the app's tagged pastes, links,
+ * and long passages in double quotes, which dictation doesn't write. A …
+ * stands in for each, so the words around it keep their place.
+ */
+export function spokenOf(text: string): string {
+  return text
+    .replace(PASTE, ' … ')
+    .replace(/\bhttps?:\/\/[^\s)\]}>"']+/g, ' … ')
+    .replace(/["“]([^"”]*)["”]/g, (quote, inner: string) => (inner.length >= 40 ? ' … ' : quote))
+}
+
+/** Marks only a keyboard leaves: a list, Markdown, words in parentheses, or a space before a colon. */
+function looksTyped(text: string): boolean {
+  return (
+    (text.match(/^\s*(?:[-*•]|\d+[.)])\s/gm)?.length ?? 0) >= 2 ||
+    /^#{1,4} |\*\*|\]\(/m.test(text) ||
+    /\([^)]*[A-Za-z]{2}[^)]*\)/.test(text) ||
+    / : /.test(text)
+  )
+}
+
+/**
+ * Whether what's left of a message once pastes and links are cut reads as
+ * dictated speech: long enough, capitalised the way dictation writes it, and
+ * prose with none of a keyboard's marks. The text is all there is to go on.
  */
 export function isSpeech(text: string): boolean {
-  const t = normalize(text)
+  const said = spokenOf(text)
+  if (looksTyped(said)) return false
+  const t = normalize(said)
   const words = wordsOf(t)
   if (words.length < MIN_WORDS) return false
-  // Dictation capitalises the first word and every "I"; typing often doesn't. "i.e." is no sign either way.
-  if (/^[a-z]/.test(t) || /(?<![A-Za-z'])i(?![A-Za-z']|\.e\b)/.test(t)) return false
+  // Dictation capitalises the first word and every "I"; typing often doesn't. "i.e." is no sign either way, and an "uh" or "um" is dictation whatever its capitals.
+  if (!/\b(?:uh|um)\b/i.test(t) && (/^[a-z]/.test(t) || /(?<![A-Za-z'])i(?![A-Za-z']|\.e\b)/.test(t))) return false
   if (/```|<\/?[a-z_-]+>/i.test(t)) return false
   // Pastes read as prose too: styled letters, a transcript's timestamps, or a length nobody dictates.
   if (/[\u{1D400}-\u{1D7FF}]/u.test(t) || (t.match(/\b\d{1,2}:\d{2}\b/g)?.length ?? 0) >= 3 || words.length > 900) return false
@@ -172,6 +204,8 @@ export function parseReview(reply: string, judged: readonly Judged[]): Review | 
   const passages = (x: unknown) =>
     Array.isArray(x) ? x.map(p => text(p, 240)).filter(p => p !== '').slice(0, 3) : []
   return {
+    // Only a plain no counts, so a reply that doesn't say keeps its note.
+    written: o.spoken === false,
     scores: Object.fromEntries(judged.map(k => [k.id, grade(scores[k.id])])),
     notes: Object.fromEntries(judged.map(k => [k.id, text(notes[k.id], 400)])),
     marks: Object.fromEntries(judged.filter(k => k.quote).map(k => [k.id, passages(marks[k.id])])),
@@ -403,6 +437,7 @@ export function toRec(v: unknown): Rec | undefined {
     ...(obj(r.places) ? { places: obj(r.places) } : {}),
     model: typeof r.model === 'string' ? r.model : 'sonnet',
     usage: toUsage(r.usage),
+    ...(r.skipped === true ? { skipped: true as const } : {}),
   }
 }
 

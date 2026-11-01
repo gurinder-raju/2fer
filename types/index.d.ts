@@ -65,6 +65,8 @@ export type Week = {
   to: string
   label: string
   messages: number
+  /** Messages that turned out not to be spoken, left out of everything here but the tokens. */
+  skipped: number
   words: number
   /** Each category's average score over the week's notes that scored it. */
   scores: Record<string, number>

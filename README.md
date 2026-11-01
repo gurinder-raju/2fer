@@ -100,9 +100,11 @@ The weekly view sums up habits judged by the model, such as Buried point, with o
 
 ## What it reviews, and what it keeps
 
-- **Which messages:** ones you send yourself that read as dictated prose. They can come from a terminal, the desktop app, or a phone over Remote Control. "Dictated prose" means 15 words or more, capitalized the way dictation writes, and not code or a paste. Slash commands and messages from other plugins are skipped.
-- **Typing:** 2fer can't tell dictation from careful typing, so a typed message that reads like dictated prose gets a note too. Use `/2fer pause` when you'd rather it didn't.
-- **What the model sees:** only that one message.
+- **Which messages:** ones you send yourself that read as dictated prose, from a terminal, the desktop app, or a phone over Remote Control. Slash commands and messages from other plugins are skipped.
+- **What's left out first:** pastes the app marks, links, and long passages in double quotes. Nobody said those, so they aren't counted, scored, sent to the model or kept. A … shows where one was.
+- **What the rest has to look like:** 15 words or more, capitalized the way dictation writes, with no code, lists, Markdown, words in parentheses or a space before a colon.
+- **Typing and short pastes:** nothing tells 2fer how a message was entered, so it goes by the text, and some typing will get through. The model also decides whether each message reads as spoken. One that clearly doesn't gets no note, though its tokens are still used. For the rest, **I didn't say this** on a card takes that message out of your week, and the weekly view's last line counts what was skipped. Use `/2fer pause` when you're mostly typing.
+- **What the model sees:** only what's left of that one message.
 - **What's stored:**
   - **Within a session:** notes and the session pane's copy of your messages are kept in the session's own state.
   - **For the weekly trend, for 26 weeks:** a small record of each note: its scores, how often it used each habit word on 2fer's fixed lists and where they fell, and the token use. Apart from those listed words, this record holds none of what you said.
