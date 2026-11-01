@@ -121,6 +121,7 @@ These steps are judgment calls, so some careful typing gets through, mostly shor
 
 ## What it sends, and what it keeps
 
+- **What it reads:** each message as you send it, through Claude Code's `prompt.submit` hook. It passes the message on unchanged, so your conversation with Claude is the same with or without it.
 - **What the model sees:** only what's left of that one message.
 - **What's stored:**
   - **Within a session:** notes and the session pane's copy of your messages are kept in the session's own state.

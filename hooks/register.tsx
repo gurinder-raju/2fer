@@ -50,8 +50,8 @@ const CHART_WEEKS = 8
 // How hard the model thinks, for a note and for a week's pattern. Its
 // thinking counts toward a reply's cap, so the caps leave it room.
 const EFFORT = 'medium'
-const NOTE_TOKENS = 6000
-const PATTERN_TOKENS = 3000
+const NOTE_MAX = 6000
+const PATTERN_MAX = 3000
 // The store key that says the 2fers earlier versions kept have been moved.
 const TIPS_MOVED = 'tips-moved'
 // The store key that says the first session has been and gone.
@@ -168,7 +168,7 @@ async function write(
       system: [{ text: rubric(judged), cache: true }],
       prompt: ask(text, counts, counted, judged),
       effort: EFFORT,
-      maxTokens: NOTE_TOKENS,
+      maxTokens: NOTE_MAX,
       timeoutMs: 120_000,
     })
     if (!reply.isAnswered) return fail($, reply.reason)
@@ -199,7 +199,7 @@ async function ignore($: EngineInterface, key: string, note: Note): Promise<void
   await leaveOut($, key, `${dayOf(note.at)}:${note.at}:${key}`, note.model, note.usage)
 }
 
-async function review($: EngineInterface, message: string): Promise<void> {
+async function scoreMessage($: EngineInterface, message: string): Promise<void> {
   const key = keyOf(message)
   if ((await read($, notes))[key]) return
   const settings = await settingsOf($)
@@ -379,7 +379,7 @@ async function summarize($: EngineInterface, id: string, week: Week): Promise<vo
       system: [{ text: PATTERN_RUBRIC, cache: true }],
       prompt: [`The habit: ${c.name}. ${c.about}`, '', 'The notes:', ...said.slice(-60).map(n => `- ${n}`)].join('\n'),
       effort: EFFORT,
-      maxTokens: PATTERN_TOKENS,
+      maxTokens: PATTERN_MAX,
       timeoutMs: 120_000,
     })
     const found = reply.isAnswered ? patternFrom(reply.text) : undefined
@@ -600,7 +600,7 @@ export const register: Register = on => {
   // hook ever throw, the handler lets the prompt through all the same.
   on('prompt.submit', ($, e, next) => {
     if (PEOPLE.has(e.origin?.kind) && !e.command && isSpeech(e.text)) {
-      void review($, e.text).catch(err => fail($, String(err)))
+      void scoreMessage($, e.text).catch(err => fail($, String(err)))
     }
 
     return next(e)
