@@ -35,35 +35,27 @@ Earlier weeks keep their scores and counts. Your words go after seven days, so t
 
 ![The weekly view: six habit scores, a chart of fillers against the other habits over eight weeks, messages per week, the most common pattern and words, the best message and the 2fer that kept coming back.](images/weekly-view.png)
 
-## Before you install
+## Install
 
-- **It uses your limit.** Each note is one request to the model you choose, on your plan or API bill. Sonnet 5.5 is the default. See [Models and your limit](#models-and-your-limit).
+```bash
+claude plugin install 2fer --marketplace gurinder-raju/2fer
+```
+
+That's all. There's nothing to set up: dictate as usual, and a mark appears under each message.
+
+Inside a Claude Code terminal session, `/plugin install 2fer --marketplace gurinder-raju/2fer` does the same. Answer `y`, then press Enter.
+
+`/plugin` doesn't run in the Claude desktop app. There, click **+** next to the prompt box, then **Plugins**, then **Add marketplace** with `gurinder-raju/2fer`, then **Add plugin**. A plugin installed from a terminal also runs in the desktop app.
+
+2fer is built on Claude Code's plugin hooks API, which is in early access. It was tested on Claude Code 2.1.309.
+
+## Good to know
+
+- **It uses your limit.** Each note is one request to Sonnet 5.5, on your plan or API bill. `/2fer model` picks another. See [Models and your limit](#models-and-your-limit).
 - **It's English only.** Messages in other languages get no note.
 - **It needs plain dictation.** 2fer scores the text your dictation tool writes. A tool that cleans up as you speak, such as Wispr Flow, removes the fillers and restarts 2fer looks for, so your scores would read too high. A tool that writes everything in lowercase gets few notes.
 - **It keeps a few of your words.** They stay on your machine for seven days, with scores and counts for 26 weeks. See the [privacy page](PRIVACY.md). `/2fer forget` deletes them.
 - **It's early.** It was built for one speaker and used daily in the Claude desktop app. A terminal and the IDE extensions have only been tested in code.
-
-## Install
-
-At the prompt of a Claude Code terminal session:
-
-```
-/plugin install 2fer --marketplace gurinder-raju/2fer
-```
-
-Answer `y` to add the marketplace, then press Enter to install it for your user. The next screen sets the model 2fer starts with. Or, from a shell:
-
-```bash
-claude plugin install 2fer --marketplace gurinder-raju/2fer --config model=sonnet
-```
-
-A shell install doesn't ask, so `--config model=` is where you choose `opus`, `sonnet`, `haiku` or `none`. Leave it off to start with Sonnet 5.5.
-
-`/plugin` doesn't run in the Claude desktop app. There, click **+** next to the prompt box, then **Plugins**, then **Add marketplace** with `gurinder-raju/2fer`, then **Add plugin**. A plugin installed for your user from a terminal also runs in the desktop app.
-
-The first session says what 2fer does and what it uses, and `/2fer model` changes the model at any time.
-
-2fer is built on Claude Code's plugin hooks API, which is in early access. It needs Claude Code 2.1.271 or later, and was tested on 2.1.309.
 
 ## Use it
 

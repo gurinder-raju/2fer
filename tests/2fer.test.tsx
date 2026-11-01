@@ -521,9 +521,9 @@ test('when the model gives no usable answer, the note keeps the counts and says 
   await ui.unmount()
 })
 
-test('the model picked at install is where a person starts, until they pick another', { options: { model: 'haiku' } }, async ($, on) => {
+test('installing asks nothing: the first session says what 2fer does and uses, once, and Sonnet scores', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
-  const stored = storeOf(on)
+  storeOf(on)
   const asked: string[] = []
   on('model.complete', (_, e) => {
     asked.push(e.model)
@@ -540,23 +540,16 @@ test('the model picked at install is where a person starts, until they pick anot
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   await clock.settle()
 
-  // The first session says what 2fer does and what it uses, once.
-  expect(logged.length).toBe(1)
-  expect(logged[0]).toContain('each note is one request to Haiku 5.5 on your plan or API bill')
+  expect(logged).toEqual([
+    '2fer is on. Dictate as usual in English, and a mark appears under each message. Each note is one request to Sonnet 5.5 on your plan or API bill. /2fer help lists what you can change.',
+  ])
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   await clock.settle()
   expect(logged.length).toBe(1)
 
   await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
   await clock.settle()
-  expect(asked).toEqual(['claude-haiku-5-5'])
-
-  // Pausing keeps no model, so the one from install still applies. Picking another does.
-  await $.command.run({ command: '2fer', args: 'pause' })
-  expect(stored.get('settings')).toEqual({ paused: true })
-  await $.command.run({ command: '2fer', args: 'resume' })
-  await $.command.run({ command: '2fer', args: 'model opus' })
-  expect(stored.get('settings')).toEqual({ model: 'opus' })
+  expect(asked).toEqual(['claude-sonnet-5-5'])
 })
 
 test('someone who already has notes hears nothing, and keeps the Opus those notes used', async ($, on) => {
