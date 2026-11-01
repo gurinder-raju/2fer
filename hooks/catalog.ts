@@ -210,19 +210,19 @@ export const MODELS: readonly Model[] = [
     id: 'opus',
     name: 'Opus 5.5',
     model: 'claude-opus-5-5',
-    about: 'The most careful judge, at about twice what Sonnet uses.',
+    about: 'The most careful judge, at twice the price of Sonnet.',
   },
   {
     id: 'sonnet',
     name: 'Sonnet 5.5',
     model: 'claude-sonnet-5-5',
-    about: 'The default: balanced, at about half of what Opus uses.',
+    about: 'The default: balanced, at half the price of Opus.',
   },
   {
     id: 'haiku',
     name: 'Haiku 5.5',
     model: 'claude-haiku-5-5',
-    about: 'The lightest: about a fortieth of what Opus uses, and it may judge less finely.',
+    about: 'The lightest, at a twentieth of the price of Sonnet, and it may judge less finely.',
   },
   {
     id: 'none',

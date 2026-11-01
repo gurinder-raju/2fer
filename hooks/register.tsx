@@ -136,7 +136,8 @@ async function welcome($: EngineInterface): Promise<void> {
     return
   }
   const name = MODELS.find(m => m.id === DEFAULTS.model)?.name
-  $.ui.log(`2fer is on. Dictate as usual in English, and a mark appears under each message. Each note is one request to ${name} on your plan or API bill. /2fer help lists what you can change.`)
+  // The engine opens the line with the plugin's name.
+  $.ui.log(`Dictate as usual in English, and a mark appears under each message. Each note is one request to ${name} on your plan or API bill. /2fer help lists what you can change.`)
 }
 
 /** Deletes everything 2fer keeps but its settings, and what this session holds. */
