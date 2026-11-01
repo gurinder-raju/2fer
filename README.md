@@ -53,7 +53,7 @@ Inside a Claude Code terminal session, `/plugin install 2fer --marketplace gurin
 
 - **It uses your limit.** Each note is one request to Sonnet 5.5, on your plan or API bill. `/2fer model` picks another. See [Models and your limit](#models-and-your-limit).
 - **It's English only.** Messages in other languages get no note.
-- **It needs plain dictation.** 2fer scores the text your dictation tool writes. A tool that cleans up as you speak, such as Wispr Flow, removes the fillers and restarts 2fer looks for, so your scores would read too high. A tool that writes everything in lowercase gets few notes.
+- **It needs plain dictation.** 2fer scores the text your dictation tool writes. A tool that cleans up as you speak, such as Wispr Flow, removes the fillers and restarts 2fer looks for, so your scores would read too high. A tool that writes everything in lowercase gets few notes. Claude Code's own `/voice` removes "um" and "uh", so those two don't count there, though other fillers such as "actually" do.
 - **It keeps a few of your words.** They stay on your machine for seven days, with scores and counts for 26 weeks. See the [privacy page](PRIVACY.md). `/2fer forget` deletes them.
 - **It's early.** It was built for one speaker and used daily in the Claude desktop app. It has had one full run in a terminal, and the IDE extensions have only been tested in code.
 
