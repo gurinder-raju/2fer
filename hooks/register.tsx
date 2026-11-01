@@ -97,9 +97,6 @@ const patterns = atom({ plugin: '2fer', key: 'patterns' } as const, {})
 // The settings as the panes draw them; $.store keeps them across sessions.
 const prefs = atom({ plugin: '2fer', key: 'prefs' } as const, DEFAULTS)
 
-// The model a person starts with: their pick when they installed, or the default.
-let startingModel = DEFAULTS.model
-
 function kept(all: Record<string, Note>): Record<string, Note> {
   return Object.fromEntries(Object.entries(all).slice(-NOTES_KEPT))
 }
@@ -115,23 +112,21 @@ function modelOf(id: string): string {
 }
 
 async function settingsOf($: EngineInterface): Promise<Settings> {
-  return toSettings(await $.store.get('settings'), startingModel)
+  return toSettings(await $.store.get('settings'))
 }
 
 async function changeSettings($: EngineInterface, change: (s: Settings) => Settings): Promise<Settings> {
-  const next = toSettings(change(await settingsOf($)), startingModel)
-  // Only a model picked over the starting one is kept, so a new starting model still applies.
-  const { model, ...rest } = next
-  await $.store.set('settings', model === startingModel ? rest : next)
+  const next = toSettings(change(await settingsOf($)))
+  await $.store.set('settings', next)
   await update($, prefs, () => next)
   $.ui.invalidate('ui.render')
   return next
 }
 
 /**
- * The first session 2fer runs in says what it does and what it uses. Someone
- * with notes from before the starting model could be picked is told nothing,
- * and keeps Opus, which those versions used.
+ * Installing asks nothing, so the first session says what 2fer does and what
+ * it uses. Someone with notes from before Sonnet became the default is told
+ * nothing, and keeps Opus, which those versions used.
  */
 async function welcome($: EngineInterface): Promise<void> {
   if (await $.store.get(WELCOMED)) return
@@ -140,9 +135,8 @@ async function welcome($: EngineInterface): Promise<void> {
     await $.store.set('settings', toSettings(await $.store.get('settings'), 'opus'))
     return
   }
-  const m = MODELS.find(x => x.id === (startingModel as string))
-  const use = m?.model ? `each note is one request to ${m.name} on your plan or API bill` : 'it only counts words, with no model'
-  $.ui.log(`2fer is on. It scores messages you dictate in English, and ${use}. /2fer settings changes the model, /2fer pause stops notes, and /2fer help lists the rest.`)
+  const name = MODELS.find(m => m.id === DEFAULTS.model)?.name
+  $.ui.log(`2fer is on. Dictate as usual in English, and a mark appears under each message. Each note is one request to ${name} on your plan or API bill. /2fer help lists what you can change.`)
 }
 
 /** Deletes everything 2fer keeps but its settings, and what this session holds. */
@@ -587,9 +581,7 @@ function rowsOf(widths: readonly number[], columns: number): number {
   return rows
 }
 
-export const register: Register = (on, options) => {
-  startingModel = toSettings({ model: options.model }).model
-
+export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: '2fer',
@@ -1085,7 +1077,7 @@ export const register: Register = (on, options) => {
           <Text size="footnote" dimColor>{s.paused ? 'Paused in every session.' : 'On for each message you dictate.'}</Text>
           <Button key="pause" plain label={s.paused ? 'Resume' : 'Pause'} onPress={() => changeSettings($, now => ({ ...now, paused: !now.paused }))} />
         </Box>
-        <Button key="defaults" label="Back to the default" onPress={() => changeSettings($, () => ({ model: startingModel }))} />
+        <Button key="defaults" label="Back to the default" onPress={() => changeSettings($, () => DEFAULTS)} />
       </Box>
     )
   })
