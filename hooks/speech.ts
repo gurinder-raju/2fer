@@ -2,7 +2,7 @@
 // categories, come out the same every time. The model judges only what code
 // can't.
 
-import type { Grade, Note, Place, Quotes, Reading, Snippet, Usage } from '../types'
+import type { Grade, Note, Place, Quotes, Snippet, Usage } from '../types'
 import { CATEGORIES, MODELS, countOf } from './catalog'
 import type { Counted, Hit, Judged, Piece, Style } from './catalog'
 
@@ -22,14 +22,13 @@ export type Review = Pick<Note, 'before' | 'after' | 'tip' | 'skeleton'> & {
   /** The passages the model copied out for each judged category that marks them. */
   marks: Record<string, string[]>
 }
-/** One reviewed message, as the weekly view keeps it in $.store: no words of the message. */
+/** One reviewed message, as the weekly view keeps it in $.store for the trend: numbers and the fixed habit words, and nothing else of what was said. */
 export type Rec = {
   words: number
   scores: Record<string, Grade>
   tallies: Record<string, Record<string, number>>
   /** Where each counted category's words fell, by category and word. */
   places?: Record<string, Record<string, Partial<Record<Place, number>>>>
-  tip: string
   model: string
   usage: Usage | null
 }
@@ -195,37 +194,12 @@ export function tokensOf(u: Usage): number {
   return u.input + u.output + u.cacheRead + u.cacheWrite
 }
 
-/** What a call's tokens come to at the model's API list price, in dollars: how they are weighed against the plan's limit. */
-export function costOf(model: string, u: Usage | null): number {
-  const p = MODELS.find(m => m.id === model)?.price
-  if (!u || !p) return 0
-  return (u.input * p.input + u.output * p.output + u.cacheRead * p.cacheRead + u.cacheWrite * p.cacheWrite) / 1e6
-}
-
 function thousands(n: number): string {
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 export function kilo(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
-}
-
-// How far the 5-hour window must move, in its whole points, to say what one is worth.
-const POINTS_TO_TELL = 2
-
-/** A share of the 5-hour limit, to one figure, which is all the estimate can bear. */
-export function percentOf(x: number): string {
-  return x < 0.01 ? 'under 0.01%' : `about ${Number(x.toPrecision(1))}%`
-}
-
-/**
- * What one point of the 5-hour window is worth at list prices, from how far
- * it moved while the session spent. The window is reported in whole points,
- * so it has to move a little before this can tell.
- */
-export function pointWorth(from: Reading, now: Reading): number | undefined {
-  const moved = now.percent - from.percent
-  return moved >= POINTS_TO_TELL && now.usd > from.usd ? (now.usd - from.usd) / moved : undefined
 }
 
 /** The local time of day, as the card and the session pane show it: "10:02". */
@@ -240,8 +214,7 @@ function usedOf(n: Note): string {
   const name = MODELS.find(m => m.id === n.model)?.name ?? n.model
   if (n.unanswered) return `Word counts only: ${name} didn’t answer`
   if (!n.usage) return `Scored by ${name}`
-  const used = `${name} · ${thousands(tokensOf(n.usage))} tokens`
-  return n.share === undefined ? used : `${used} · ${percentOf(n.share)} of your 5-hour limit`
+  return `${name} · ${thousands(tokensOf(n.usage))} tokens`
 }
 
 /** What a note's card shows: each scored category as a pill with its line, then the 2fer and the rewrite. */
@@ -428,7 +401,6 @@ export function toRec(v: unknown): Rec | undefined {
     scores: obj(r.scores) ?? obj(r.grades) ?? {},
     tallies: obj(r.tallies) ?? { fillers: obj(r.fillers) ?? {}, hedging: obj(r.hedges) ?? {} },
     ...(obj(r.places) ? { places: obj(r.places) } : {}),
-    tip: typeof r.tip === 'string' ? r.tip : '',
     model: typeof r.model === 'string' ? r.model : 'sonnet',
     usage: toUsage(r.usage),
   }
@@ -440,5 +412,5 @@ export function toQuotes(v: unknown): Quotes | undefined {
   const q = v as Record<string, unknown>
   if (typeof q.excerpt !== 'string') return undefined
   const obj = (x: unknown) => (typeof x === 'object' && x !== null ? (x as Record<string, never>) : {})
-  return { excerpt: q.excerpt, snippets: obj(q.snippets), notes: obj(q.notes) }
+  return { excerpt: q.excerpt, snippets: obj(q.snippets), notes: obj(q.notes), tip: typeof q.tip === 'string' ? q.tip : '' }
 }

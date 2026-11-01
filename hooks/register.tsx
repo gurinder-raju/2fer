@@ -11,7 +11,6 @@ import {
   averagesOf,
   cardOf,
   clockOf,
-  costOf,
   countGrade,
   countSpeech,
   dayOf,
@@ -22,9 +21,7 @@ import {
   normalize,
   numberWord,
   parseReview,
-  percentOf,
   placesOf,
-  pointWorth,
   praiseOf,
   runsOf,
   snippetsOf,
@@ -33,7 +30,7 @@ import {
   toRec,
 } from './speech'
 import type { Average, Counts, Rec, Review } from './speech'
-import { bestOf, commonTip, examplesOf, minutesOf, patternFrom, patternOf, spanOf, weekdayOf, weeksOf } from './week'
+import { bestOf, commonTip, examplesOf, minutesOf, patternFrom, patternOf, spanOf, tipsOf, weekdayOf, weeksOf } from './week'
 import type { Entry, Kept } from './week'
 
 // Prompts a person sent: typed at a terminal, sent from the desktop app (an
@@ -44,9 +41,9 @@ const SETTINGS = '2fer-settings'
 const SESSION = '2fer-session'
 const NOTES_KEPT = 200
 const DAY = 86_400_000
-// Scores and counts are kept 26 weeks for the trend; a message's own words, two weeks.
+// Scores and counts are kept 26 weeks for the trend; a message's own words, and what the model said of them, a week.
 const DAYS_KEPT = 182
-const QUOTE_DAYS = 14
+const QUOTE_DAYS = 7
 const WEEKS = 26
 const CHART_WEEKS = 8
 // How hard the model thinks, for a note and for a week's pattern. Its
@@ -54,8 +51,8 @@ const CHART_WEEKS = 8
 const EFFORT = 'medium'
 const NOTE_TOKENS = 6000
 const PATTERN_TOKENS = 3000
-// The store key for what a point of the 5-hour window is worth.
-const POINT_WORTH = 'point-worth'
+// The store key that says the 2fers earlier versions kept have been moved.
+const TIPS_MOVED = 'tips-moved'
 // The card's width beside a message on a graphical surface; a pill's width keeps the lines beside the pills aligned.
 const CARD_COLS = 68
 const PILL_COLS = 16
@@ -86,16 +83,15 @@ const HELP = [
 
 // Change the tag when Note's or Weekly's fields change: it declines what an
 // earlier version kept, which outlives a reload.
-const notes = atom({ plugin: '2fer', key: 'notes' } as const, {}, { shape: 'notes-6' })
+const notes = atom({ plugin: '2fer', key: 'notes' } as const, {}, { shape: 'notes-7' })
 const opened = atom({ plugin: '2fer', key: 'opened' } as const, '')
 // The habit the session pane is narrowed to, by id; empty for every message.
 const focus = atom({ plugin: '2fer', key: 'focus' } as const, '')
-const weekly = atom({ plugin: '2fer', key: 'weekly' } as const, null, { shape: 'weekly-1' })
+const weekly = atom({ plugin: '2fer', key: 'weekly' } as const, null, { shape: 'weekly-2' })
 const view = atom({ plugin: '2fer', key: 'view' } as const, { back: 0, habit: '', earlier: 0, table: false })
 const patterns = atom({ plugin: '2fer', key: 'patterns' } as const, {})
 // The settings as the panes draw them; $.store keeps them across sessions.
 const prefs = atom({ plugin: '2fer', key: 'prefs' } as const, DEFAULTS)
-const reading = atom({ plugin: '2fer', key: 'reading' } as const, null)
 
 function kept(all: Record<string, Note>): Record<string, Note> {
   return Object.fromEntries(Object.entries(all).slice(-NOTES_KEPT))
@@ -109,34 +105,6 @@ function fail($: EngineInterface, why: string): undefined {
 /** The full model id a setting asks for. */
 function modelOf(id: string): string {
   return MODELS.find(m => m.id === id)?.model ?? id
-}
-
-/**
- * A note's share of the 5-hour limit in percent, once there is a reading to
- * go on. The plan reports only how full the whole window is, so each note
- * reads it, and what a point of the window is worth comes from how far it
- * moved while this session spent; the note is weighed the same way, at list
- * prices. The worth outlives the session; an API key has no such window.
- */
-async function shareOfLimit($: EngineInterface, model: string, usage: Usage): Promise<number | undefined> {
-  try {
-    const { rateLimits, cost } = await $.session.usage()
-    const window = rateLimits.find(r => r.kind === 'five_hour')
-    if (!window || !cost) return undefined
-    const now = { percent: window.percentUsed, usd: cost.usd }
-    const from = await read($, reading)
-    // A new window, or a cleared session's ledger, starts the reading over.
-    if (!from || now.percent < from.percent || now.usd < from.usd) await update($, reading, () => now)
-    const worth = from ? pointWorth(from, now) : undefined
-    const known = await $.store.get(POINT_WORTH)
-    // Other sessions fill the same window, which can only make a point look cheap, so the highest reading is the truest.
-    const best = Math.max(typeof known === 'number' ? known : 0, worth ?? 0)
-    if (best === 0) return undefined
-    if (best !== known) await $.store.set(POINT_WORTH, best)
-    return costOf(model, usage) / best
-  } catch {
-    return undefined
-  }
 }
 
 async function settingsOf($: EngineInterface): Promise<Settings> {
@@ -218,7 +186,6 @@ async function review($: EngineInterface, text: string): Promise<void> {
     const found = await write($, settings.model, text, counts, counted, judged)
     if (found) {
       const { review: r, usage } = found
-      const share = await shareOfLimit($, settings.model, usage)
       judgedNotes = Object.fromEntries(judged.map(c => [c.id, r.notes[c.id] ?? '']).filter(([, n]) => n !== ''))
       note = {
         ...note,
@@ -233,7 +200,6 @@ async function review($: EngineInterface, text: string): Promise<void> {
         tip: r.tip,
         skeleton: r.skeleton,
         usage,
-        ...(share === undefined ? {} : { share }),
       }
     } else {
       // What code counted still stands, and the card says the model didn't answer.
@@ -247,25 +213,47 @@ async function review($: EngineInterface, text: string): Promise<void> {
     scores: note.scores,
     tallies: counts.tallies,
     places: placesOf(text, counted),
-    tip: note.tip,
     model: note.model,
     usage: note.usage,
   }
   await $.store.set(`msg:${stamp}`, rec)
-  // The message's own words, kept apart and for two weeks only: the weekly view's examples.
+  // The message's own words and what the model said of them, kept apart and for a week only: the latest week's examples.
   const quoted = judged.filter(c => c.style).flatMap(c => (note.marks[c.id] ?? []).map(q => ({ id: c.id, text: q })))
-  const quotes: Quotes = { excerpt: excerptOf(text), snippets: snippetsOf(text, counted, quoted), notes: judgedNotes }
+  const quotes: Quotes = { excerpt: excerptOf(text), snippets: snippetsOf(text, counted, quoted), notes: judgedNotes, tip: note.tip }
   await $.store.set(`quote:${stamp}`, quotes)
 }
 
+/**
+ * Earlier versions kept the 2fer with the numbers, where it outlived the
+ * words it can quote. It moves in with those words while they are kept, and
+ * goes otherwise. The mark saves reading every record again at each start.
+ */
+async function moveTips($: EngineInterface): Promise<void> {
+  if (await $.store.get(TIPS_MOVED)) return
+  for (const key of await $.store.keys()) {
+    if (!key.startsWith('msg:')) continue
+    const stored = (await $.store.get(key)) as { tip?: unknown } | undefined
+    const rec = toRec(stored)
+    if (!rec || stored?.tip === undefined) continue
+    const quoteKey = `quote:${key.slice(4)}`
+    const quotes = toQuotes(await $.store.get(quoteKey))
+    if (quotes && typeof stored.tip === 'string') await $.store.set(quoteKey, { ...quotes, tip: stored.tip })
+    await $.store.set(key, rec)
+  }
+  await $.store.set(TIPS_MOVED, true)
+}
+
 async function prune($: EngineInterface): Promise<void> {
+  await moveTips($)
   const now = await $.clock.now()
   const kept = dayOf(now - DAYS_KEPT * DAY)
   const quoted = dayOf(now - QUOTE_DAYS * DAY)
   for (const key of await $.store.keys()) {
     const [kind, day = ''] = key.split(':')
-    if ((kind === 'msg' || kind === 'pattern') && day < kept) await $.store.delete(key)
-    if (kind === 'quote' && day < quoted) await $.store.delete(key)
+    if (kind === 'msg' && day < kept) await $.store.delete(key)
+    if ((kind === 'quote' || kind === 'pattern') && day < quoted) await $.store.delete(key)
+    // Earlier versions kept what a point of the 5-hour window was worth.
+    if (kind === 'point-worth') await $.store.delete(key)
   }
 }
 
@@ -283,23 +271,16 @@ async function weeklyOf($: EngineInterface): Promise<Weekly> {
     }
   }
   const weeks = weeksOf([...recs.values()], today, WEEKS)
-  const keptWeeks: Weekly['kept'] = []
-  // Only this week and last still have their words kept.
-  for (const back of [0, 1]) {
-    const week = weeks[weeks.length - 1 - back]
-    if (!week) continue
-    const inWeek: Kept[] = []
-    for (const key of quoteKeys) {
-      const day = key.slice(6, 16)
-      if (day < week.from || day > week.to) continue
-      const entry = recs.get(key.slice(6))
-      const quotes = toQuotes(await $.store.get(key))
-      if (entry && quotes) inWeek.push({ ...entry, quotes })
-    }
-    keptWeeks.push({ back, examples: examplesOf(inWeek), best: bestOf(inWeek) })
+  // Only the latest week still has its words kept.
+  const from = weeks[weeks.length - 1]?.from ?? today
+  const inWeek: Kept[] = []
+  for (const key of quoteKeys) {
+    if (key.slice(6, 16) < from) continue
+    const entry = recs.get(key.slice(6))
+    const quotes = toQuotes(await $.store.get(key))
+    if (entry && quotes) inWeek.push({ ...entry, quotes })
   }
-  const worth = await $.store.get(POINT_WORTH)
-  return { today, weeks, kept: keptWeeks, ...(typeof worth === 'number' ? { worth } : {}) }
+  return { today, weeks, kept: { examples: examplesOf(inWeek), best: bestOf(inWeek), tips: tipsOf(inWeek) } }
 }
 
 /**
@@ -309,6 +290,8 @@ async function weeklyOf($: EngineInterface): Promise<Weekly> {
 async function summarize($: EngineInterface, id: string, week: Week): Promise<void> {
   const c = CATEGORIES.find(x => x.id === id)
   if (!c || isCounted(c)) return
+  // A pattern is summed up from kept words, so only the latest week has one.
+  if (week.to !== dayOf(await $.clock.now())) return
   const slot = `${week.from}:${id}`
   // The pattern arrives after its request, so the view is asked to redraw then.
   const settle = async (p: Pattern) => {
@@ -741,12 +724,14 @@ export const register: Register = on => {
       </Box>
     )
 
+    // Only the latest week still has its words kept.
+    const words = v.back === 0 ? w.kept : undefined
     // What kept happening: worked out in code for a counted habit, summed up by the model for a judged one.
     const counted = isCounted(habit)
     const found = counted ? patternOf(habit.id, week) : undefined
     const judged = counted ? undefined : (await read($, patterns))[`${week.from}:${habit.id}`]
     const under = (week.grades[habit.id] ?? []).slice(0, 3).reduce((a, b) => a + b, 0)
-    const examples = w.kept.find(k => k.back === v.back)?.examples[habit.id] ?? []
+    const examples = words?.examples[habit.id] ?? []
     const markOf = () => (habit.style ? markedOf([habit.id], floats) : { weight: 'semibold' as const })
     const section = (title: string, body: string) => (
       <Box flexDirection="column">
@@ -816,9 +801,10 @@ export const register: Register = on => {
       </Box>
     )
 
-    const best = w.kept.find(k => k.back === v.back)?.best
-    const tipFound = commonTip(week.tips)
-    const latest = week.tips[week.tips.length - 1]
+    const best = words?.best
+    const tips = words?.tips ?? []
+    const tipFound = commonTip(tips)
+    const latest = tips[tips.length - 1]
     return (
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" gap={1}>
@@ -864,10 +850,9 @@ export const register: Register = on => {
             </Box>
           )}
         </Box>
+        {v.back > 0 && <Text size="caption" dimColor>Your words are kept for seven days, so earlier weeks show scores and counts only.</Text>}
         <Text size="caption" dimColor>
-          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'} · ${kilo(week.tokens)} tokens${
-            w.worth === undefined ? '' : ` · ${percentOf(week.cost / w.worth)} of a 5-hour limit`
-          }`}
+          {`2fer’s own use this week: ${week.messages} ${week.messages === 1 ? 'note' : 'notes'} · ${kilo(week.tokens)} tokens`}
         </Text>
       </Box>
     )

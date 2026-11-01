@@ -196,14 +196,13 @@ export const CATEGORIES: readonly Category[] = [
 export const isCounted = (c: Category): c is Counted => c.kind === 'count'
 export const isJudged = (c: Category): c is Judged => c.kind === 'judge'
 
-/** A model a note can be scored with: the id settings keep, the model it asks for, and its API list price in dollars per million tokens (October 2026), which weighs a note against the plan's limit. */
+/** A model a note can be scored with: the id settings keep, and the model it asks for. */
 export type Model = {
   id: string
   name: string
   /** The full model id each request names, so a setting means one model; null for no model. */
   model: string | null
   about: string
-  price: { input: number; output: number; cacheRead: number; cacheWrite: number } | null
 }
 
 export const MODELS: readonly Model[] = [
@@ -212,28 +211,24 @@ export const MODELS: readonly Model[] = [
     name: 'Opus 5.5',
     model: 'claude-opus-5-5',
     about: 'The default, and the most careful judge.',
-    price: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
   },
   {
     id: 'sonnet',
     name: 'Sonnet 5.5',
     model: 'claude-sonnet-5-5',
     about: 'Balanced: about half of what Opus uses.',
-    price: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
   },
   {
     id: 'haiku',
     name: 'Haiku 5.5',
     model: 'claude-haiku-5-5',
     about: 'The lightest: about a fortieth of what Opus uses, and it may judge less finely.',
-    price: { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
   },
   {
     id: 'none',
     name: 'No model',
     model: null,
     about: 'Word counts only, and none of your limit: fillers and hedging, with no rewrite and no 2fer.',
-    price: null,
   },
 ]
 

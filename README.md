@@ -29,6 +29,8 @@ Hover over the mark for a quick look at every score, floating over the end of yo
 - **The habit's words:** for a habit counted in code, its most common words this week against last.
 - **Your best message** and the 2fer that kept coming back.
 
+Earlier weeks keep their scores and counts. Your words go after seven days, so the examples, your best message and the 2fers show only for the latest week.
+
 ![The weekly view: six habit scores, a chart of fillers against the other habits over eight weeks, messages per week, the most common pattern and words, the best message and the 2fer that kept coming back.](images/weekly-view.png)
 
 ## Install
@@ -83,7 +85,7 @@ Each note is one request to the model you choose. Claude Code makes it with the 
 
 | Model | What a note uses |
 |---|---|
-| Opus 5.5 (default) | about 3,000 tokens for 50 words and 4,000 for 300, or roughly 0.01 to 0.03% of a 5-hour limit on Pro |
+| Opus 5.5 (default) | about 3,000 tokens for 50 words and 4,000 for 300 |
 | Sonnet 5.5 | about half of Opus |
 | Haiku 5.5 | about a fortieth of Opus |
 | No model | nothing: fillers and hedging only, with no rewrite or 2fer |
@@ -92,9 +94,7 @@ Each request asks the model to think at medium effort before it scores, and that
 
 If the model doesn't give a usable answer, the note keeps the fillers and hedging that code counted, and says the model didn't answer.
 
-Each opened note shows the tokens it used and about how much of your 5-hour limit that was, and the weekly view adds them up for the week.
-
-The share is an estimate. A plan reports only how full the whole window is, in whole points, not what each request took. So each note reads the window, 2fer works out what a point is worth from what your session spends while the window moves, and it weighs the note the same way, at API list prices. Your plan may weigh tokens differently. Other sessions and claude.ai fill the same window, which makes a point look cheaper than it is, so 2fer keeps the highest figure it has seen. The share can still read high until it sees a truer one. It appears once the window has moved two points between notes in a session, and never with an API key, which has no such window.
+Each opened note shows the tokens it used, and the weekly view adds them up for the week.
 
 The weekly view sums up habits judged by the model, such as Buried point, with one more model request when you pick that habit, about the size of a note. The answer is kept, so the request runs again only when that week's notes change.
 
@@ -105,14 +105,14 @@ The weekly view sums up habits judged by the model, such as Buried point, with o
 - **What the model sees:** only that one message.
 - **What's stored:**
   - **Within a session:** notes and the session pane's copy of your messages are kept in the session's own state.
-  - **For the weekly trend, for 26 weeks:** a small record of each note, with its scores, the habit words it counted and where they fell, the 2fer and the token use. This record holds none of your words.
-  - **For the weekly examples, for 14 days:** a separate record of a few of your words.
+  - **For the weekly trend, for 26 weeks:** a small record of each note: its scores, how often it used each habit word on 2fer's fixed lists and where they fell, and the token use. Apart from those listed words, this record holds none of what you said.
+  - **For the latest week's examples, for seven days:** separate records of a few of your words, and of what the model said about them.
     - The message's start, up to 200 characters, for "best message".
     - A few words either side of each habit 2fer found.
-    - The model's notes, which can quote you.
+    - The model's notes and its 2fer, which can quote you.
+    - Any weekly pattern the model summed up from those notes.
 
-    After 14 days these records are deleted.
-  - **For the share of your limit:** one number, what a point of your 5-hour limit is worth. It's kept across sessions and raised when 2fer sees a higher figure.
+    The first session to start after seven days deletes these records.
   - **Where it all lives:** the records and your settings are in a JSON file under your Claude Code configuration folder.
 
 ## Development
