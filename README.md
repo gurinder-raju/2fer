@@ -35,6 +35,14 @@ Earlier weeks keep their scores and counts. Your words go after seven days, so t
 
 ![The weekly view: six habit scores, a chart of fillers against the other habits over eight weeks, messages per week, the most common pattern and words, the best message and the 2fer that kept coming back.](images/weekly-view.png)
 
+## Before you install
+
+- **It uses your limit.** Each note is one request to the model you choose, on your plan or API bill. Sonnet 5.5 is the default. See [Models and your limit](#models-and-your-limit).
+- **It's English only.** Messages in other languages get no note.
+- **It needs plain dictation.** 2fer scores the text your dictation tool writes. A tool that cleans up as you speak, such as Wispr Flow, removes the fillers and restarts 2fer looks for, so your scores would read too high. A tool that writes everything in lowercase gets few notes.
+- **It keeps a few of your words.** They stay on your machine for seven days, with scores and counts for 26 weeks. See the [privacy page](PRIVACY.md). `/2fer forget` deletes them.
+- **It's early.** It was built for one speaker and used daily in the Claude desktop app. A terminal and the IDE extensions have only been tested in code.
+
 ## Install
 
 At the prompt of a Claude Code terminal session:
@@ -51,7 +59,9 @@ claude plugin install 2fer --marketplace gurinder-raju/2fer
 
 `/plugin` doesn't run in the Claude desktop app. There, click **+** next to the prompt box, then **Plugins**, then **Add marketplace** with `gurinder-raju/2fer`, then **Add plugin**. A plugin installed for your user from a terminal also runs in the desktop app.
 
-2fer is built on Claude Code's plugin hooks API, which is in early access. It was tested on Claude Code 2.1.309.
+In a terminal, the install asks which model to start with. The first session then says what 2fer does and what it uses.
+
+2fer is built on Claude Code's plugin hooks API, which is in early access. It needs Claude Code 2.1.271 or later, and was tested on 2.1.309.
 
 ## Use it
 
@@ -61,6 +71,7 @@ claude plugin install 2fer --marketplace gurinder-raju/2fer
 - `/2fer` opens your week beside the chat.
 - `/2fer settings` opens the settings, where you choose the model. `/2fer model haiku` does the same from the prompt.
 - `/2fer pause` stops notes in every session, until `/2fer resume`.
+- `/2fer forget` deletes everything 2fer has kept, apart from your settings. It asks you to confirm first.
 - `/2fer help` lists the commands.
 
 ## The six habits
@@ -88,8 +99,8 @@ Each note is one request to the model you choose. Claude Code makes it with the 
 
 | Model | What a note uses |
 |---|---|
-| Opus 5.5 (default) | about 3,000 tokens for 50 words and 4,000 for 300 |
-| Sonnet 5.5 | about half of Opus |
+| Opus 5.5 | about 3,000 tokens for 50 words and 4,000 for 300 |
+| Sonnet 5.5 (default) | about half of Opus |
 | Haiku 5.5 | about a fortieth of Opus |
 | No model | nothing: fillers and hedging only, with no rewrite or 2fer |
 
@@ -107,7 +118,7 @@ Nothing tells 2fer how a message was entered, so it works from the message itsel
 
 1. **Who sent it.** Only messages you send yourself count, from a terminal, the desktop app, or a phone over Remote Control. Slash commands, scheduled tasks and messages from other plugins are skipped.
 2. **What nobody said.** Pastes the app marks, links, and long passages in double quotes are cut. They aren't counted, scored, sent to the model or kept, and a … shows where one was. The app marks only long pastes, so a short paste stays in.
-3. **Whether the rest looks spoken.** What's left needs 15 to 900 words, mostly plain words, with the capitals dictation writes: a capital first word and a capital "I". An "uh" or "um" counts as speech whatever the capitals. Code, tags, lists, Markdown, words in parentheses, a space before a colon, transcript timestamps and styled letters all rule a message out.
+3. **Whether the rest looks spoken.** What's left needs 15 to 900 words, mostly plain words in English, with the capitals dictation writes: a capital first word and a capital "I". An "uh" or "um" counts as speech whatever the capitals. Code, tags, lists, Markdown, words in parentheses, a space before a colon, transcript timestamps and styled letters all rule a message out.
 4. **Whether the model agrees.** The scoring model decides whether the message reads as spoken. One that clearly doesn't gets no note, though its tokens are still used. With no model, this step doesn't run.
 
 These steps are judgment calls, so some careful typing gets through, mostly short, conversational messages. In a test on one person's messages, the model flagged 2 of 50 that passed step 3, and both read as written. It caught 12 of 25 typed messages cleaned up to look like dictation.

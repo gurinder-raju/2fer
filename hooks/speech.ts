@@ -106,6 +106,10 @@ export function spokenOf(text: string): string {
     .replace(/["“]([^"”]*)["”]/g, (quote, inner: string) => (inner.length >= 40 ? ' … ' : quote))
 }
 
+// The commonest English words, and the share of a message they must reach. They run to about a third of English and next to nothing of other languages.
+const COMMON = new Set('the and to of a in is it that i you we for on with this be have not can so do what are but if my me'.split(' '))
+const MIN_COMMON = 0.1
+
 /** Marks only a keyboard leaves: a list, Markdown, words in parentheses, or a space before a colon. */
 function looksTyped(text: string): boolean {
   return (
@@ -118,8 +122,9 @@ function looksTyped(text: string): boolean {
 
 /**
  * Whether what's left of a message once pastes and links are cut reads as
- * dictated speech: long enough, capitalised the way dictation writes it, and
- * prose with none of a keyboard's marks. The text is all there is to go on.
+ * dictated speech: long enough, in English, which is all the habits and the
+ * rubric cover, capitalised the way dictation writes it, and prose with none
+ * of a keyboard's marks. The text is all there is to go on.
  */
 export function isSpeech(text: string): boolean {
   const said = spokenOf(text)
@@ -127,6 +132,7 @@ export function isSpeech(text: string): boolean {
   const t = normalize(said)
   const words = wordsOf(t)
   if (words.length < MIN_WORDS) return false
+  if (words.filter(w => COMMON.has(w.toLowerCase())).length / words.length < MIN_COMMON) return false
   // Dictation capitalises the first word and every "I"; typing often doesn't. "i.e." is no sign either way, and an "uh" or "um" is dictation whatever its capitals.
   if (!/\b(?:uh|um)\b/i.test(t) && (/^[a-z]/.test(t) || /(?<![A-Za-z'])i(?![A-Za-z']|\.e\b)/.test(t))) return false
   if (/```|<\/?[a-z_-]+>/i.test(t)) return false

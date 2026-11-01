@@ -210,13 +210,13 @@ export const MODELS: readonly Model[] = [
     id: 'opus',
     name: 'Opus 5.5',
     model: 'claude-opus-5-5',
-    about: 'The default, and the most careful judge.',
+    about: 'The most careful judge, at about twice what Sonnet uses.',
   },
   {
     id: 'sonnet',
     name: 'Sonnet 5.5',
     model: 'claude-sonnet-5-5',
-    about: 'Balanced: about half of what Opus uses.',
+    about: 'The default: balanced, at about half of what Opus uses.',
   },
   {
     id: 'haiku',
@@ -232,13 +232,13 @@ export const MODELS: readonly Model[] = [
   },
 ]
 
-export const DEFAULTS: Settings = { model: 'opus' }
+export const DEFAULTS: Settings = { model: 'sonnet' }
 
-/** Settings as stored, with the default model for one that is missing or that the catalog no longer has. */
-export function toSettings(v: unknown): Settings {
+/** Settings as stored, with the starting model for one that is missing or that the catalog no longer has. */
+export function toSettings(v: unknown, starting: string = DEFAULTS.model): Settings {
   const s = typeof v === 'object' && v !== null ? (v as Partial<Settings>) : {}
   return {
-    model: MODELS.some(m => m.id === s.model) ? (s.model as string) : DEFAULTS.model,
+    model: MODELS.some(m => m.id === s.model) ? (s.model as string) : starting,
     ...(s.paused === true ? { paused: true } : {}),
   }
 }
