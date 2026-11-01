@@ -51,15 +51,17 @@ At the prompt of a Claude Code terminal session:
 /plugin install 2fer --marketplace gurinder-raju/2fer
 ```
 
-Answer `y` to add the marketplace, then press Enter to install it for your user. Or, from a shell:
+Answer `y` to add the marketplace, then press Enter to install it for your user. The next screen sets the model 2fer starts with. Or, from a shell:
 
 ```bash
-claude plugin install 2fer --marketplace gurinder-raju/2fer
+claude plugin install 2fer --marketplace gurinder-raju/2fer --config model=sonnet
 ```
+
+A shell install doesn't ask, so `--config model=` is where you choose `opus`, `sonnet`, `haiku` or `none`. Leave it off to start with Sonnet 5.5.
 
 `/plugin` doesn't run in the Claude desktop app. There, click **+** next to the prompt box, then **Plugins**, then **Add marketplace** with `gurinder-raju/2fer`, then **Add plugin**. A plugin installed for your user from a terminal also runs in the desktop app.
 
-In a terminal, the install asks which model to start with. The first session then says what 2fer does and what it uses.
+The first session says what 2fer does and what it uses, and `/2fer model` changes the model at any time.
 
 2fer is built on Claude Code's plugin hooks API, which is in early access. It needs Claude Code 2.1.271 or later, and was tested on 2.1.309.
 
