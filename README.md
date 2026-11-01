@@ -55,7 +55,7 @@ Inside a Claude Code terminal session, `/plugin install 2fer --marketplace gurin
 - **It's English only.** Messages in other languages get no note.
 - **It needs plain dictation.** 2fer scores the text your dictation tool writes. A tool that cleans up as you speak, such as Wispr Flow, removes the fillers and restarts 2fer looks for, so your scores would read too high. A tool that writes everything in lowercase gets few notes.
 - **It keeps a few of your words.** They stay on your machine for seven days, with scores and counts for 26 weeks. See the [privacy page](PRIVACY.md). `/2fer forget` deletes them.
-- **It's early.** It was built for one speaker and used daily in the Claude desktop app. A terminal and the IDE extensions have only been tested in code.
+- **It's early.** It was built for one speaker and used daily in the Claude desktop app. It has had one full run in a terminal, and the IDE extensions have only been tested in code.
 
 ## Use it
 
@@ -93,9 +93,9 @@ Each note is one request to the model you choose. Claude Code makes it with the 
 
 | Model | What a note uses |
 |---|---|
-| Opus 5.5 | about 3,000 tokens for 50 words and 4,000 for 300 |
-| Sonnet 5.5 (default) | about half of Opus |
-| Haiku 5.5 | about a fortieth of Opus |
+| Sonnet 5.5 (default) | about 3,000 tokens for 50 words and 4,000 for 300 |
+| Opus 5.5 | about the same tokens, at twice the price |
+| Haiku 5.5 | about the same tokens, at a twentieth of the price |
 | No model | nothing: fillers and hedging only, with no rewrite or 2fer |
 
 Each request asks the model to think at medium effort before it scores, and that thinking is part of those tokens. To change the effort, edit `EFFORT` in `hooks/register.tsx`.

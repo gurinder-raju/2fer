@@ -541,7 +541,7 @@ test('installing asks nothing: the first session says what 2fer does and uses, o
   await clock.settle()
 
   expect(logged).toEqual([
-    '2fer is on. Dictate as usual in English, and a mark appears under each message. Each note is one request to Sonnet 5.5 on your plan or API bill. /2fer help lists what you can change.',
+    'Dictate as usual in English, and a mark appears under each message. Each note is one request to Sonnet 5.5 on your plan or API bill. /2fer help lists what you can change.',
   ])
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   await clock.settle()
