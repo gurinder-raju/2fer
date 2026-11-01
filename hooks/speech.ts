@@ -22,14 +22,13 @@ export type Review = Pick<Note, 'before' | 'after' | 'tip' | 'skeleton'> & {
   /** The passages the model copied out for each judged category that marks them. */
   marks: Record<string, string[]>
 }
-/** One reviewed message, as the weekly view keeps it in $.store: not the message, though its tip can quote a few of its words. */
+/** One reviewed message, as the weekly view keeps it in $.store for the trend: numbers and the fixed habit words, and nothing else of what was said. */
 export type Rec = {
   words: number
   scores: Record<string, Grade>
   tallies: Record<string, Record<string, number>>
   /** Where each counted category's words fell, by category and word. */
   places?: Record<string, Record<string, Partial<Record<Place, number>>>>
-  tip: string
   model: string
   usage: Usage | null
 }
@@ -402,7 +401,6 @@ export function toRec(v: unknown): Rec | undefined {
     scores: obj(r.scores) ?? obj(r.grades) ?? {},
     tallies: obj(r.tallies) ?? { fillers: obj(r.fillers) ?? {}, hedging: obj(r.hedges) ?? {} },
     ...(obj(r.places) ? { places: obj(r.places) } : {}),
-    tip: typeof r.tip === 'string' ? r.tip : '',
     model: typeof r.model === 'string' ? r.model : 'sonnet',
     usage: toUsage(r.usage),
   }
@@ -414,5 +412,5 @@ export function toQuotes(v: unknown): Quotes | undefined {
   const q = v as Record<string, unknown>
   if (typeof q.excerpt !== 'string') return undefined
   const obj = (x: unknown) => (typeof x === 'object' && x !== null ? (x as Record<string, never>) : {})
-  return { excerpt: q.excerpt, snippets: obj(q.snippets), notes: obj(q.notes) }
+  return { excerpt: q.excerpt, snippets: obj(q.snippets), notes: obj(q.notes), tip: typeof q.tip === 'string' ? q.tip : '' }
 }

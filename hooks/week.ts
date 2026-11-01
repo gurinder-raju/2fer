@@ -61,7 +61,6 @@ function weekOf(from: string, to: string, recs: readonly Rec[]): Week {
     tallies: {},
     places: {},
     present: {},
-    tips: [],
     tokens: 0,
   }
   for (const c of CATEGORIES) {
@@ -72,7 +71,6 @@ function weekOf(from: string, to: string, recs: readonly Rec[]): Week {
   }
   for (const r of recs) {
     w.words += r.words
-    if (r.tip) w.tips.push(r.tip)
     if (r.usage) w.tokens += tokensOf(r.usage)
     for (const [id, found] of Object.entries(r.tallies)) {
       const tally = (w.tallies[id] ??= {})
@@ -174,6 +172,11 @@ export function examplesOf(kept: readonly Kept[]): Record<string, Snippet[]> {
     }
   }
   return found
+}
+
+/** The 2fers a week's kept words hold, the oldest first. */
+export function tipsOf(kept: readonly Kept[]): string[] {
+  return [...kept].sort((a, b) => a.at - b.at).flatMap(k => (k.quotes.tip ? [k.quotes.tip] : []))
 }
 
 /** The model's summing-up of a week of notes, or undefined when its reply isn't the JSON asked for. */

@@ -71,6 +71,22 @@ const PANE = {
 const SETTINGS_PANE = { ...PANE, requestId: '2fer-settings', props: { ...PANE.props, title: '2fer settings' } } as const
 const SESSION_PANE = { ...PANE, requestId: '2fer-session', props: { ...PANE.props, title: 'This session' } } as const
 
+/** A store a test can read back afterwards, which `mock.store` doesn't offer. */
+function storeOf(on: Parameters<typeof mock.store>[0], entries: [string, unknown][] = []): Map<string, unknown> {
+  const stored = new Map(entries)
+  on('store.keys', () => ({ value: [...stored.keys()] }))
+  on('store.get', (_, e) => ({ value: stored.get(e.key) }))
+  on('store.set', (_, e) => {
+    stored.set(e.key, e.value)
+    return { value: undefined }
+  })
+  on('store.delete', (_, e) => {
+    stored.delete(e.key)
+    return { value: undefined }
+  })
+  return stored
+}
+
 test('the counts and the marks come from code, and only dictated prose is reviewed', () => {
   const c = countSpeech(SAID, COUNTED)
   expect(c.sentences).toBe(4)
@@ -95,7 +111,7 @@ test('the counts and the marks come from code, and only dictated prose is review
     'right? | fillers',
     'kind of | hedging',
   ])
-  // Where each habit's words fell, and the few words either side the weekly view keeps for two weeks.
+  // Where each habit's words fell, and the few words either side the weekly view keeps for a week.
   const places = placesOf(SAID, COUNTED)
   expect(places.fillers).toEqual({ like: { middle: 1 }, 'right?': { end: 1 } })
   expect(places.hedging).toEqual({ 'something like that': { end: 1 }, 'kind of': { middle: 1 } })
@@ -256,20 +272,45 @@ test('the settings choose the model', async ($, on) => {
   await ui.unmount()
 })
 
-test('what earlier versions kept for the 5-hour limit goes at the next session start', async ($, on) => {
+test('a note keeps numbers for the trend, with its words and its 2fer apart', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
-  const stored = new Map<string, unknown>([['point-worth', 0.5]])
-  on('store.keys', () => ({ value: [...stored.keys()] }))
-  on('store.get', (_, e) => ({ value: stored.get(e.key) }))
-  on('store.delete', (_, e) => {
-    stored.delete(e.key)
-    return { value: undefined }
-  })
+  const stored = storeOf(on)
+  on('model.complete', () => ({ value: { isAnswered: true, text: JSON.stringify(REVIEW), usage: USAGE } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: SAID, origin: { kind: 'sdk' } })
+  await clock.settle()
+  const record = (kind: string) => [...stored].find(([key]) => key.startsWith(kind))?.[1] as Record<string, unknown>
+  expect(Object.keys(record('msg:')).sort()).toEqual(['model', 'places', 'scores', 'tallies', 'usage', 'words'])
+  expect(record('quote:').tip).toBe(REVIEW.tip)
+})
+
+test('at a session start, words go after a week, and what earlier versions kept moves or goes', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  const fresh = NOW - 2 * DAY
+  const stale = NOW - 9 * DAY
+  const rec = { words: 120, scores: { fillers: 3 }, tallies: { fillers: { like: 2 } }, model: 'opus', usage: null }
+  const stored = storeOf(on, [
+    ['point-worth', 0.5],
+    [`msg:${dayOf(fresh)}:${fresh}:a`, { ...rec, tip: 'Say the ask first.' }],
+    [`quote:${dayOf(fresh)}:${fresh}:a`, { excerpt: 'Keep a copy.', snippets: {}, notes: {} }],
+    [`msg:${dayOf(stale)}:${stale}:b`, { ...rec, tip: 'Say “a copy” once.' }],
+    [`quote:${dayOf(stale)}:${stale}:b`, { excerpt: 'An old message.', snippets: {}, notes: {} }],
+    [`pattern:${dayOf(stale)}:point`, { main: 'An old pattern.', practice: '', notes: 1 }],
+  ])
   on('command.register', () => ({ value: { command: '2fer' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   await clock.settle()
-  expect(stored.size).toBe(0)
+  // The numbers stay, with no 2fer beside them.
+  expect(stored.get(`msg:${dayOf(fresh)}:${fresh}:a`)).toEqual(rec)
+  expect(stored.get(`msg:${dayOf(stale)}:${stale}:b`)).toEqual(rec)
+  // A 2fer whose words are still kept moves in with them.
+  expect(stored.get(`quote:${dayOf(fresh)}:${fresh}:a`)).toEqual({ excerpt: 'Keep a copy.', snippets: {}, notes: {}, tip: 'Say the ask first.' })
+  // Past a week, the words and the pattern go, and so does the figure for the 5-hour limit.
+  expect(stored.has(`quote:${dayOf(stale)}:${stale}:b`)).toBe(false)
+  expect(stored.has(`pattern:${dayOf(stale)}:point`)).toBe(false)
+  expect(stored.has('point-worth')).toBe(false)
+  expect(stored.get('tips-moved')).toBe(true)
 })
 
 test('with no model, a note has only the counted habits and costs nothing', async ($, on) => {
@@ -494,12 +535,11 @@ test('this session lists your messages in order, marked where the habits showed,
 test('/2fer opens the week: its scores, the picked habit week by week, what kept happening, and the best message', async ($, on) => {
   mock.clock(on, { now: NOW })
   const usage = { input: 180, output: 450, cacheRead: 1000, cacheWrite: 0 }
-  const rec = (scores: Record<string, number>, tallies: Record<string, Record<string, number>>, places: object, tip: string) => ({
+  const rec = (scores: Record<string, number>, tallies: Record<string, Record<string, number>>, places: object) => ({
     words: 120,
     scores,
     tallies,
     places,
-    tip,
     model: 'sonnet',
     usage,
   })
@@ -507,20 +547,16 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
   const b = NOW - 2 * DAY
   const c = NOW - DAY
   mock.store(on, {
-    [`msg:${dayOf(last)}:${last}:a`]: rec({ fillers: 2, point: 2 }, { fillers: { like: 3 } }, { fillers: { like: { middle: 3 } } }, 'Open with the ask: say it first.'),
-    [`msg:${dayOf(b)}:${b}:b`]: rec(
-      { fillers: 3, point: 3 },
-      { fillers: { like: 2, okay: 1 } },
-      { fillers: { like: { middle: 2 }, okay: { opener: 1 } } },
-      'Open with the ask: lead with it.',
-    ),
-    [`msg:${dayOf(c)}:${c}:c`]: rec({ fillers: 5, point: 5 }, { fillers: {} }, {}, 'Open with the ask. Keep doing this.'),
+    [`msg:${dayOf(last)}:${last}:a`]: rec({ fillers: 2, point: 2 }, { fillers: { like: 3 } }, { fillers: { like: { middle: 3 } } }),
+    [`msg:${dayOf(b)}:${b}:b`]: rec({ fillers: 3, point: 3 }, { fillers: { like: 2, okay: 1 } }, { fillers: { like: { middle: 2 }, okay: { opener: 1 } } }),
+    [`msg:${dayOf(c)}:${c}:c`]: rec({ fillers: 5, point: 5 }, { fillers: {} }, {}),
     [`quote:${dayOf(b)}:${b}:b`]: {
       excerpt: 'Okay so the cache, like, needs a copy.',
       snippets: { fillers: [{ text: 'so the cache, like, needs a copy.', start: 14, end: 18 }] },
       notes: { point: 'The ask comes last.' },
+      tip: 'Open with the ask: lead with it.',
     },
-    [`quote:${dayOf(c)}:${c}:c`]: { excerpt: 'Keep a copy on each server.', snippets: {}, notes: {} },
+    [`quote:${dayOf(c)}:${c}:c`]: { excerpt: 'Keep a copy on each server.', snippets: {}, notes: {}, tip: 'Open with the ask. Keep doing this.' },
   })
   const asked: string[] = []
   const how: { model: string; effort?: string }[] = []
@@ -573,6 +609,19 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
   expect(await text(/^You save the ask/)).toBe('You save the ask for the end.')
   expect(await text(/^Say the ask in/)).toBe('Say the ask in your first sentence.')
   expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe('Buried point by week: Oct 16 2.0, Oct 23 4.0')
+
+  // An earlier week keeps its scores and counts, and shows none of the words or the model's lines.
+  await ui.press({ key: 'week-earlier' })
+  expect(await text(/^Week of /)).toBe('Week of Oct 16')
+  expect(await text(/^1 of 1 messages scored under 4\.$/)).toBe('1 of 1 messages scored under 4.')
+  expect(await text(/^“Keep a copy/)).toBeUndefined()
+  expect(await text(/^From your messages$/)).toBeUndefined()
+  expect(await text(/^Open with the ask/)).toBeUndefined()
+  expect(await text(/^You save the ask/)).toBeUndefined()
+  expect(await text(/^Your words are kept/)).toBe('Your words are kept for seven days, so earlier weeks show scores and counts only.')
+  expect(asked.length).toBe(1)
+  await ui.press({ key: 'week-later' })
+  expect(await text(/^Your words are kept/)).toBeUndefined()
   await ui.unmount()
 
   // The terminal draws no SVG, so it gets the table.

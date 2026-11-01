@@ -48,12 +48,14 @@ export type Place = 'opener' | 'start' | 'end' | 'middle'
 /** A short stretch of a message, and where the words to mark sit in it. */
 export type Snippet = { text: string; start: number; end: number }
 
-/** What 2fer keeps of a message's own words, for 14 days: a short excerpt, and the snippets each habit was found in. */
+/** What 2fer keeps of a message's own words, for seven days: a short excerpt, the snippets each habit was found in, and what the model said of them. */
 export type Quotes = {
   excerpt: string
   snippets: Record<string, Snippet[]>
   /** The model's note on each judged category, in its words, which may quote the message. */
   notes: Record<string, string>
+  /** The 2fer the model gave, in its words, which may quote the message too. */
+  tip: string
 }
 
 /** Seven days of notes, added up. */
@@ -74,7 +76,6 @@ export type Week = {
   places: Record<string, Record<string, Partial<Record<Place, number>>>>
   /** How many of the week's messages each counted category found anything in. */
   present: Record<string, number>
-  tips: string[]
   tokens: number
 }
 
@@ -86,8 +87,8 @@ export type Weekly = {
   today: string
   /** Up to 26 weeks, the oldest first; the last ends today. */
   weeks: Week[]
-  /** For the two weeks quotes are kept for, by how many weeks back: each habit's examples, and the best message. */
-  kept: { back: number; examples: Record<string, Snippet[]>; best: Best | null }[]
+  /** What the latest week's kept words show: each habit's examples, the best message, and its 2fers, the oldest first. */
+  kept: { examples: Record<string, Snippet[]>; best: Best | null; tips: string[] }
 }
 
 /** Which week the view shows, which habit is picked, how far back the chart reaches, and whether it shows a table. */

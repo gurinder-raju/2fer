@@ -29,6 +29,8 @@ Hover over the mark for a quick look at every score, floating over the end of yo
 - **The habit's words:** for a habit counted in code, its most common words this week against last.
 - **Your best message** and the 2fer that kept coming back.
 
+Earlier weeks keep their scores and counts. Your words go after seven days, so the examples, your best message and the 2fers show only for the latest week.
+
 ![The weekly view: six habit scores, a chart of fillers against the other habits over eight weeks, messages per week, the most common pattern and words, the best message and the 2fer that kept coming back.](images/weekly-view.png)
 
 ## Install
@@ -103,13 +105,14 @@ The weekly view sums up habits judged by the model, such as Buried point, with o
 - **What the model sees:** only that one message.
 - **What's stored:**
   - **Within a session:** notes and the session pane's copy of your messages are kept in the session's own state.
-  - **For the weekly trend, for 26 weeks:** a small record of each note, with its scores, the habit words it counted and where they fell, the 2fer and the token use. Any weekly pattern the model summed up is kept for as long. The record doesn't hold your message, but the 2fer and the pattern are in the model's words, and those can quote a few of yours.
-  - **For the weekly examples, for 14 days:** a separate record of a few of your words.
+  - **For the weekly trend, for 26 weeks:** a small record of each note: its scores, how often it used each habit word on 2fer's fixed lists and where they fell, and the token use. Apart from those listed words, this record holds none of what you said.
+  - **For the latest week's examples, for seven days:** separate records of a few of your words, and of what the model said about them.
     - The message's start, up to 200 characters, for "best message".
     - A few words either side of each habit 2fer found.
-    - The model's notes, which can quote you.
+    - The model's notes and its 2fer, which can quote you.
+    - Any weekly pattern the model summed up from those notes.
 
-    After 14 days these records are deleted.
+    The first session to start after seven days deletes these records.
   - **Where it all lives:** the records and your settings are in a JSON file under your Claude Code configuration folder.
 
 ## Development
