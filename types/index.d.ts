@@ -65,6 +65,8 @@ export type Week = {
   to: string
   label: string
   messages: number
+  /** Messages left out by the model or with Ignore: they count here only in the tokens. */
+  ignored: number
   words: number
   /** Each category's average score over the week's notes that scored it. */
   scores: Record<string, number>

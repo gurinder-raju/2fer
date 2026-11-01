@@ -1,7 +1,7 @@
 {
   "name": "2fer",
   "version": "0.1.0",
-  "description": "Speaking practice while you work: a mark under each message you dictate to Claude opens a card scoring six speaking habits, with a session view and a weekly trend.",
+  "description": "Speaking practice while you work: a mark under each message you dictate to Claude opens a card scoring six speaking habits, with a session view and a weekly trend. It leaves out pastes, links and messages that read as typed.",
   "author": { "name": "Gurinder Raju" },
   "repository": "https://github.com/gurinder-raju/2fer",
   "homepage": "https://github.com/gurinder-raju/2fer#what-it-looks-like",

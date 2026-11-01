@@ -49,12 +49,14 @@ export function minutesOf(w: Week): number {
   return Math.round(w.words / 150)
 }
 
-function weekOf(from: string, to: string, recs: readonly Rec[]): Week {
+function weekOf(from: string, to: string, all: readonly Rec[]): Week {
+  const recs = all.filter(r => !r.ignored)
   const w: Week = {
     from,
     to,
     label: labelOf(from),
     messages: recs.length,
+    ignored: all.length - recs.length,
     words: 0,
     scores: {},
     grades: {},
@@ -69,9 +71,9 @@ function weekOf(from: string, to: string, recs: readonly Rec[]): Week {
     w.scores[c.id] = xs.reduce((a, b) => a + b, 0) / xs.length
     w.grades[c.id] = [1, 2, 3, 4, 5].map(g => xs.filter(x => x === g).length)
   }
+  for (const r of all) if (r.usage) w.tokens += tokensOf(r.usage)
   for (const r of recs) {
     w.words += r.words
-    if (r.usage) w.tokens += tokensOf(r.usage)
     for (const [id, found] of Object.entries(r.tallies)) {
       const tally = (w.tallies[id] ??= {})
       for (const [name, n] of Object.entries(found)) tally[name] = (tally[name] ?? 0) + n
