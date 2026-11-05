@@ -40,8 +40,12 @@ export type Rec = {
 export type Card = {
   /** When the message was sent, and how long it was: "10:02 · 55 words". */
   head: string
-  /** Each scored category: its pill, and the line beside it. */
-  rows: { short: string; score: Grade; detail: string; style?: Style }[]
+  /**
+   * Each scored category: its pill, the words in the message it marks, and
+   * the line under them. A counted category's words are its tally, so it has
+   * no line; a judged one shows the passages its line doesn't already quote in full.
+   */
+  rows: { id: string; short: string; score: Grade; marked: string[]; detail: string; style?: Style }[]
   tip: string
   after: string
   before: string
@@ -261,12 +265,16 @@ function usedOf(n: Note): string {
 export function cardOf(n: Note): Card {
   return {
     head: `${clockOf(n.at)} · ${n.words} words`,
-    rows: CATEGORIES.filter(c => (n.scores[c.id] ?? 0) > 0).map(c => ({
-      short: c.short,
-      score: n.scores[c.id] ?? 0,
-      detail: n.details[c.id] ?? '',
-      style: c.style,
-    })),
+    rows: CATEGORIES.filter(c => (n.scores[c.id] ?? 0) > 0).map(c => {
+      const detail = n.details[c.id] ?? ''
+      const row = { id: c.id, short: c.short, score: n.scores[c.id] ?? 0, ...(c.style ? { style: c.style } : {}) }
+      if (c.kind === 'count') return { ...row, marked: detail === '' ? [] : detail.split(', '), detail: '' }
+      // A passage the line already quotes in full would only say it twice.
+      const bare = (s: string) => s.toLowerCase().replace(/^[\s.,…]+|[\s.,…]+$/g, '')
+      const said = quotesOf(detail).map(bare)
+      const marked = (n.marks[c.id] ?? []).map(m => m.trim()).filter(m => m !== '' && !said.some(q => q.includes(bare(m))))
+      return { ...row, marked, detail }
+    }),
     tip: n.tip,
     after: n.after,
     before: n.before,
