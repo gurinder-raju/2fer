@@ -243,13 +243,22 @@ test('a dictated message gets the 2fer mark: the pointer shows its pills, and a 
     expect(await text(/ · 45 words$/)).toMatch(/^\d{1,2}:\d{2} · 45 words$/)
     expect(await text(/^“So I want/)).toMatch(/^“So I want to change the cache\. You should, we could keep like .*…”$/)
     expect(await text(/^Out of 5/)).toBe('Out of 5, higher is better')
-    // Each scored category is a pill, its score ahead of its name, with its line beside it.
+    // Each scored category is a row: a pill, its score ahead of its name, beside the words it marks and its line.
     for (const name of ['Fillers', 'Hedging', 'Incomplete', 'Repetition', 'Transitions', 'Buried point']) {
       expect(await text(new RegExp(`^${name}$`))).toBe(name)
     }
-    expect(await text(/^like/)).toBe('like, right?')
-    expect(await text(/^kind of/)).toBe('kind of, something like that')
+    // A counted habit's words are its line, each word in the habit's mark.
+    expect(await text(/^like · right\?$/)).toBe('like · right?')
+    expect(await text(/^kind of · something like that$/)).toBe('kind of · something like that')
+    const like = await ui.find({ type: 'Text', text: /^like$/ })
+    if (surface === 'desktop') expect(like?.props.backgroundColor).toBe('#EB683433')
+    else expect(like?.props.color).toBe('warning')
+    // A judged habit shows the passages it marks, quoted, unless its line already quotes them in full.
+    expect(await text(/^“And if a server restarts”$/)).toBe('“And if a server restarts”')
     expect(await text(/^“You should, we could”$/)).toBe('“You should, we could”')
+    expect((await ui.findAll({ type: 'Text', text: /^“You should, we could”$/ })).length).toBe(1)
+    // A rule parts the six rows where the surface draws one; the terminal leaves a blank line.
+    expect((await ui.findAll({ type: 'Svg' })).length).toBe(surface === 'desktop' ? 5 : 0)
     expect(await text(/^The most important/)).toBe('The most important point comes last. 3 of 4 sentences open with So, And, Like or Right.')
     expect(await text(/^2fer$/)).toBe('2fer')
     expect(await text(/^Say the main point/)).toBe('Say the main point first.')
@@ -667,9 +676,9 @@ test('this session lists your messages in order, marked where the habits showed,
   expect((await ui.find({ type: 'Text', text: /^And the main thing is $/ }))?.props.backgroundColor).toBe('#EDA10040')
   // The pills at the top wear the same marks, and say so.
   expect(await text(/^Marks in your words/)).toBe('Marks in your words match these pills. Click a pill to see only the messages where that habit slipped.')
-  // Each message has a line for every habit under 5, its pill beside the note that explains its mark.
+  // Each message has a row for every habit under 5: its pill beside the words it marks and the note that explains them.
   expect(await text(/ · 45 words$/)).toMatch(/^\d{1,2}:\d{2} · 45 words$/)
-  expect(await text(/^like, right\?$/)).toBe('like, right?')
+  expect(await text(/^like · right\?$/)).toBe('like · right?')
   expect(await text(/^The ask comes in the last sentence\.$/)).toBe('The ask comes in the last sentence.')
   expect((await ui.find({ type: 'Text', text: /^Incomplete$/ }))?.props.underline).toBe(true)
   expect(await text(/^Say it as:$/)).toBe('Say it as:')

@@ -30,7 +30,7 @@ import {
   toQuotes,
   toRec,
 } from './speech'
-import type { Average, Counts, Rec, Review } from './speech'
+import type { Average, Card, Counts, Rec, Review } from './speech'
 import { bestOf, commonTip, examplesOf, minutesOf, patternFrom, patternOf, spanOf, tipsOf, weekdayOf, weeksOf } from './week'
 import type { Entry, Kept } from './week'
 
@@ -67,6 +67,13 @@ const RINGS = '⚭'
 // reads on a light theme and a dark one alike. Each habit's own mark is its
 // style in catalog.ts.
 const TINT = { pill: '#8F8B8326' } as const
+
+// The rule between a note's habit rows on a graphical surface: a hairline in
+// the pill's gray with room above and below, drawn wider than any row so the
+// surface narrows it to the row's width.
+const RULE =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4000 9" preserveAspectRatio="none" width="4000" height="9">' +
+  '<rect y="4" width="4000" height="1" fill="#8F8B83" fill-opacity="0.4"/></svg>'
 
 const PATTERN_RUBRIC = [
   'You are a speaking coach. Each line below is a short coaching note about one habit of one speaker, one note per message, from a week of messages they dictated to an AI assistant.',
@@ -494,6 +501,42 @@ function pillOf(els: ElementTable, score: string, short: string, graphical: bool
   )
 }
 
+/**
+ * A note's habits as a table, the card's and the session pane's alike: a row
+ * each, its pill beside the words it marks in the message, drawn in its mark,
+ * and its line under them. A rule parts the rows where the surface draws one,
+ * else a blank line, so no row's lines run into the next.
+ */
+function habitRowsOf(els: ElementTable, rows: Card['rows'], graphical: boolean) {
+  const { Box, Text } = els
+  const Svg = graphical && 'Svg' in els ? els.Svg : undefined
+  // A counted habit's words come as its tally, "like ×2", the word alone in
+  // its mark; a judged habit's as the passages it marks, quoted.
+  const passageOf = (r: Card['rows'][number], m: string) => {
+    const mark = markedOf([r.id], graphical)
+    if (CATEGORIES.find(c => c.id === r.id)?.kind !== 'count') return ['“', <Text {...mark}>{m}</Text>, '”']
+    const times = m.match(/ ×\d+$/)?.[0] ?? ''
+    const word = <Text {...mark}>{m.slice(0, m.length - times.length)}</Text>
+    return times === '' ? [word] : [word, times]
+  }
+  return (
+    <Box flexDirection="column" gap={Svg ? 0 : 1}>
+      {rows.flatMap((r, i) => [
+        ...(i > 0 && Svg ? [<Svg source={RULE} alt="" height={9} />] : []),
+        <Box flexDirection="row" gap={2} alignItems="flex-start">
+          <Box width={PILL_COLS} flexShrink={0}>{pillOf(els, String(r.score), r.short, graphical, r.style)}</Box>
+          {(r.marked.length > 0 || r.detail !== '') && (
+            <Box flexDirection="column" flexShrink={1}>
+              {r.marked.length > 0 && <Text size="footnote">{r.marked.flatMap((m, j) => [...(j > 0 ? [' · '] : []), ...passageOf(r, m)])}</Text>}
+              {r.detail !== '' && <Text size="footnote" dimColor>{r.detail}</Text>}
+            </Box>
+          )}
+        </Box>,
+      ])}
+    </Box>
+  )
+}
+
 /** Opens a note's card, or closes it given '' or the key already open, and redraws now rather than next turn. */
 async function showCard($: EngineInterface, key: string): Promise<void> {
   await update($, opened, now => (now === key ? '' : key))
@@ -524,14 +567,7 @@ function cardOf$($: EngineInterface, els: ElementTable, note: Note, key: string,
         <Button key={`2fer-close-${key}`} plain dimColor label="×" role="dismiss" onPress={() => showCard($, '')} />
       </Box>
       {label('Out of 5, higher is better')}
-      <Box flexDirection="column">
-        {c.rows.map(r => (
-          <Box flexDirection="row" gap={2} alignItems="center">
-            <Box width={PILL_COLS} flexShrink={0}>{pillOf(els, String(r.score), r.short, graphical, r.style)}</Box>
-            {r.detail !== '' && <Text size="footnote" dimColor>{r.detail}</Text>}
-          </Box>
-        ))}
-      </Box>
+      {habitRowsOf(els, c.rows, graphical)}
       {c.tip !== '' && (
         <Box flexDirection="column">
           {label('2fer')}
@@ -992,23 +1028,12 @@ export const register: Register = on => {
     // mark in the words has its explanation beside it.
     const entries = listed.map(n => {
       const quoted = quoting.flatMap(c => (n.marks[c.id] ?? []).map(text => ({ text, id: c.id })))
-      const flagged = CATEGORIES.filter(c => (n.scores[c.id] ?? 0) > 0 && (n.scores[c.id] ?? 0) < 5)
+      const flagged = cardOf(n).rows.filter(r => r.score < 5)
       return (
         <Box flexDirection="column" gap={1}>
           <Text size="footnote" dimColor>{`${clockOf(n.at)} · ${n.words} words`}</Text>
           <Text>{runsOf(n.text, counted, quoted).map(r => <Text {...markedOf(r.marks, floats)}>{r.text}</Text>)}</Text>
-          {flagged.length === 0 ? (
-            <Box flexDirection="row">{pill('', praiseOf(n))}</Box>
-          ) : (
-            <Box flexDirection="column">
-              {flagged.map(c => (
-                <Box flexDirection="row" gap={2} alignItems="flex-start">
-                  <Box width={PILL_COLS} flexShrink={0}>{pill(String(n.scores[c.id] ?? 0), c.short, c.style)}</Box>
-                  {(n.details[c.id] ?? '') !== '' && <Text size="footnote" dimColor>{n.details[c.id] ?? ''}</Text>}
-                </Box>
-              ))}
-            </Box>
-          )}
+          {flagged.length === 0 ? <Box flexDirection="row">{pill('', praiseOf(n))}</Box> : habitRowsOf(els, flagged, floats)}
           {n.tip !== '' && (
             <Text size="footnote">
               <Text weight="semibold">2fer:</Text>
