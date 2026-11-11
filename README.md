@@ -62,7 +62,7 @@ Inside a Claude Code terminal session, `/plugin install 2fer --marketplace gurin
 - Dictate as you normally would. Each message of 15 words or more gets a note. Hover over its ⚭ mark to see its scores, or click it to open the card under the message.
 - **Ignore** on a card takes that message out of the session and your week.
 - `/2fer session`, or **This session ›** on any card, opens this session's messages beside the chat.
-- `/2fer` opens your week beside the chat.
+- `/2fer` or `/2fer week` opens your week beside the chat.
 - `/2fer settings` opens the settings, where you choose the model. `/2fer model haiku` does the same from the prompt.
 - `/2fer pause` stops notes in every session, until `/2fer resume`.
 - `/2fer forget` deletes everything 2fer has kept, apart from your settings. It asks you to confirm first.

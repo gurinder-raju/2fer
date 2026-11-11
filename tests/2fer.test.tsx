@@ -746,6 +746,8 @@ test('/2fer opens the week: its scores, the picked habit week by week, what kept
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   expect((await $.command.run({ command: '2fer', args: '' })).text).toBe('Opened your week beside the chat.')
+  // "week" says the same, as "session" names the other view.
+  expect((await $.command.run({ command: '2fer', args: 'week' })).text).toBe('Opened your week beside the chat.')
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   const text = async (rx: RegExp) => (await ui.find({ type: 'Text', text: rx }))?.text
