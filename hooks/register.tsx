@@ -84,7 +84,7 @@ const PATTERN_RUBRIC = [
 ].join('\n')
 
 const HELP = [
-  '/2fer opens your week.',
+  '/2fer or /2fer week opens your week.',
   '/2fer session opens this session’s messages.',
   '/2fer settings opens the settings.',
   '/2fer model <opus, sonnet, haiku or none> picks the model.',
@@ -707,7 +707,7 @@ export const register: Register = on => {
     )
   })
 
-  // "/2fer" opens the weekly view; "/2fer session" this session's messages;
+  // "/2fer" or "/2fer week" opens the weekly view; "/2fer session" this session's messages;
   // "/2fer settings" the settings; "/2fer model haiku" picks the model
   // without a pane; "/2fer pause" and "/2fer resume" stop and start the notes.
   // Anything else lists the commands.
@@ -736,7 +736,7 @@ export const register: Register = on => {
       await forget($)
       return { text: 'Everything 2fer kept is gone, apart from your settings.' }
     }
-    if (verb !== '') return { text: HELP }
+    if (verb !== '' && verb !== 'week') return { text: HELP }
 
     if (await openWeek($)) return { text: 'Opened your week beside the chat.' }
     const w = await read($, weekly)

@@ -1,8 +1,8 @@
-# 2fer
+![Shipped: 2fer, a plugin that helps hold your spoken words in Claude Code to a human standard](images/2fer-launch.png)
 
-Speaking practice while you work. If you dictate your messages to Claude Code, 2fer turns each one into practice. A small mark under the message opens a card that scores how you said it, out of 5, on six habits. The card also names the one change to make next time.
+A plugin that helps hold your spoken words in Claude Code to a human standard. That's why it's a 2fer: you keep working, and your speech improves.
 
-The name is the idea: every message does two things. It gets your work done, and it trains you to speak more clearly.
+A small mark under each message you dictate opens a card that scores how you said it, out of 5, on six habits. The card also names the one change to make next time.
 
 2fer tries to score only what you said. It can't see how a message was entered, so it cuts pastes and links, skips messages that read as typed, and has the scoring model check the rest. [How it finds dictated messages](#how-it-finds-dictated-messages) has the details.
 
@@ -62,7 +62,7 @@ Inside a Claude Code terminal session, `/plugin install 2fer --marketplace gurin
 - Dictate as you normally would. Each message of 15 words or more gets a note. Hover over its ⚭ mark to see its scores, or click it to open the card under the message.
 - **Ignore** on a card takes that message out of the session and your week.
 - `/2fer session`, or **This session ›** on any card, opens this session's messages beside the chat.
-- `/2fer` opens your week beside the chat.
+- `/2fer` or `/2fer week` opens your week beside the chat.
 - `/2fer settings` opens the settings, where you choose the model. `/2fer model haiku` does the same from the prompt.
 - `/2fer pause` stops notes in every session, until `/2fer resume`.
 - `/2fer forget` deletes everything 2fer has kept, apart from your settings. It asks you to confirm first.
