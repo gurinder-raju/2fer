@@ -1,8 +1,8 @@
-# 2fer
+![Shipped: 2fer, a plugin that helps hold your spoken words in Claude Code to a human standard](images/2fer-launch.png)
 
-Speaking practice while you work. If you dictate your messages to Claude Code, 2fer turns each one into practice. A small mark under the message opens a card that scores how you said it, out of 5, on six habits. The card also names the one change to make next time.
+A plugin that helps hold your spoken words in Claude Code to a human standard. That's why it's a 2fer: you keep working, and your speech improves.
 
-The name is the idea: every message does two things. It gets your work done, and it trains you to speak more clearly.
+A small mark under each message you dictate opens a card that scores how you said it, out of 5, on six habits. The card also names the one change to make next time.
 
 2fer tries to score only what you said. It can't see how a message was entered, so it cuts pastes and links, skips messages that read as typed, and has the scoring model check the rest. [How it finds dictated messages](#how-it-finds-dictated-messages) has the details.
 

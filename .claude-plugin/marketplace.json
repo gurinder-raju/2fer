@@ -1,6 +1,6 @@
 {
   "name": "2fer",
-  "description": "2fer: speaking practice while you work. It scores how you said each message you dictate to Claude, and leaves out pastes, links and messages that read as typed.",
+  "description": "2fer: a plugin that helps hold your spoken words in Claude Code to a human standard. It scores how you said each message you dictate, and leaves out pastes, links and messages that read as typed.",
   "owner": { "name": "Gurinder Raju" },
   "plugins": [{ "name": "2fer", "source": "./" }]
 }
